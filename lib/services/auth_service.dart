@@ -59,7 +59,7 @@ class AuthService {
     // Use local auth in alpha mode
     if (_isAlphaMode && _localAuthService != null) {
       print('[AuthService] Using local authentication (alpha mode)');
-      final result = await _localAuthService!.register(
+      final result = await _localAuthService.register(
         username: username,
         email: email,
         password: password,
@@ -145,7 +145,7 @@ class AuthService {
   }) async {
     // Use local auth in alpha mode
     if (_isAlphaMode && _localAuthService != null) {
-      final result = await _localAuthService!.login(
+      final result = await _localAuthService.login(
         email: email,
         password: password,
         autoLogin: autoLogin,
@@ -182,7 +182,7 @@ class AuthService {
   Future<void> logout() async {
     // Use local auth in alpha mode
     if (_isAlphaMode && _localAuthService != null) {
-      await _localAuthService!.logout();
+      await _localAuthService.logout();
       _currentUser = null;
       return;
     }
@@ -231,9 +231,9 @@ class AuthService {
   Future<bool> restoreSession() async {
     // Use local auth in alpha mode
     if (_isAlphaMode && _localAuthService != null) {
-      final restored = await _localAuthService!.restoreSession();
+      final restored = await _localAuthService.restoreSession();
       if (restored) {
-        _currentUser = _localAuthService!.currentUser;
+        _currentUser = _localAuthService.currentUser;
       }
       return restored;
     }

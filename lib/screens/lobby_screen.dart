@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
 import '../services/multiplayer_service.dart';
-import '../widgets/chat_widgets.dart';
+import 'chat_screen.dart';
 import 'game_selection_screen.dart';
 import '../services/voting_service.dart';
 import 'game_voting_screen.dart';
@@ -31,14 +31,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
   GameLobby? _lobby;
   bool _isLoading = true;
   final Map<String, bool> _typingPlayers = {};
-  final List<ChatMessage> _messages = [];
-  final List<EmojiReaction> _recentReactions = [];
-  late ScrollController _chatScrollController;
 
   @override
   void initState() {
     super.initState();
-    _chatScrollController = ScrollController();
     
     try {
       _lobby = widget.multiplayerService.currentLobby;
@@ -61,12 +57,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
         }
       });
     }
-  }
-
-  @override
-  void dispose() {
-    _chatScrollController.dispose();
-    super.dispose();
   }
 
   void _setupEventListeners() {
@@ -182,32 +172,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
       // Navigate to game screen
       Navigator.of(context).pushNamed('/game', arguments: game);
     });
-
-    // Chat message received
-    widget.multiplayerService.on('chat-message', (data) {
-      if (!mounted) return;
-      setState(() {
-        _messages.add(ChatMessage(
-          id: data['id'] as String,
-          senderId: data['userId'] as String,
-          senderName: data['displayName'] as String,
-          message: data['message'] as String,
-          timestamp: DateTime.parse(data['timestamp'] as String),
-        ));
-      });
-    });
-
-    // Emoji reaction received
-    widget.multiplayerService.on('emoji-reaction', (data) {
-      if (!mounted) return;
-      setState(() {
-        _recentReactions.add(EmojiReaction.fromJson(data));
-        // Keep only recent reactions (last 10)
-        if (_recentReactions.length > 10) {
-          _recentReactions.removeAt(0);
-        }
-      });
-    });
   }
 
   void _showSnackBar(String message) {
@@ -228,7 +192,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
     final lobby = _lobby;
     if (lobby == null) return;
 
-    // Navigate to game voting screen where players vote on games
     final selectedGameId = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (context) => GameVotingScreen(
@@ -242,7 +205,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
     if (selectedGameId != null && mounted) {
       _showSnackBar('Starting game: $selectedGameId');
-      // Game voting screen handles the voting and game start
     }
   }
 
@@ -355,13 +317,24 @@ class _LobbyScreenState extends State<LobbyScreen> {
         builder: (context) => LobbySettingsScreen(
           lobby: lobby,
           onSave: (maxPlayers, totalRounds, votingPoints) {
-            // Update lobby settings via multiplayer service
             widget.multiplayerService.updateLobbySettings(
               maxPlayers: maxPlayers,
               numberOfRounds: totalRounds,
               votingPointsPerPlayer: votingPoints,
             );
           },
+        ),
+      ),
+    );
+  }
+
+  void _navigateToChat() {
+    if (_lobby == null) return;
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => ChatScreen(
+          lobbyId: _lobby!.id,
+          currentUserId: widget.currentUserId,
         ),
       ),
     );
@@ -389,21 +362,6 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
-  void _sendChatMessage(String message) {
-    widget.multiplayerService.sendMessage(message);
-  }
-
-  void _sendEmojiReaction(String emoji) {
-    widget.multiplayerService.sendReaction(
-      messageId: '', // Lobby-level reaction (not message-specific)
-      emoji: emoji,
-    );
-  }
-
-  void _onTypingStatusChanged(bool isTyping) {
-    widget.multiplayerService.sendTypingIndicator(isTyping);
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _lobby == null) {
@@ -418,6 +376,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
       appBar: AppBar(
         title: Text(_lobby!.name),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.chat),
+            onPressed: _navigateToChat,
+            tooltip: 'Open Chat',
+          ),
           if (isHost)
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert),
@@ -526,199 +489,103 @@ class _LobbyScreenState extends State<LobbyScreen> {
               ),
             ),
 
-            // Players List and Chat Section
+            // Players List
             Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Players List
-                  Expanded(
-                    flex: 1,
-                    child: ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      itemCount: _lobby!.players.length,
-                      itemBuilder: (context, index) {
-                        final player = _lobby!.players[index];
-                        final isCurrentHost = player.id == _lobby!.hostId;
-                        final isTyping = _typingPlayers[player.id] == true;
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: _lobby!.players.length,
+                itemBuilder: (context, index) {
+                  final player = _lobby!.players[index];
+                  final isCurrentHost = player.id == _lobby!.hostId;
+                  final isTyping = _typingPlayers[player.id] == true;
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: ListTile(
-                            leading: Stack(
-                              children: [
-                                CircleAvatar(
-                                  child: Text(
-                                    player.username[0].toUpperCase(),
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                Positioned(
-                                  right: 0,
-                                  bottom: 0,
-                                  child: _buildPlayerStatusIcon(player.status),
-                                ),
-                              ],
-                            ),
-                            title: Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    player.username,
-                                    style: const TextStyle(
-                                        fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                                if (isCurrentHost) ...[
-                                  const SizedBox(width: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.amber,
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: const Text(
-                                      'HOST',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            subtitle: Text(
-                              isTyping
-                                  ? 'typing...'
-                                  : _getPlayerStatusText(player.status),
-                              style: TextStyle(
-                                color: isTyping ? Colors.blue : null,
-                                fontStyle: isTyping ? FontStyle.italic : null,
-                              ),
-                            ),
-                            trailing: isHost && player.id != widget.currentUserId
-                                ? PopupMenuButton<String>(
-                                    icon: const Icon(Icons.more_vert),
-                                    onSelected: (value) {
-                                      switch (value) {
-                                        case 'kick':
-                                          _kickPlayer(player);
-                                          break;
-                                        case 'transfer':
-                                          _transferHost(player);
-                                          break;
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      const PopupMenuItem(
-                                        value: 'transfer',
-                                        child: Text('Make Host'),
-                                      ),
-                                      const PopupMenuItem(
-                                        value: 'kick',
-                                        child: Text('Kick Player'),
-                                      ),
-                                    ],
-                                  )
-                                : null,
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-
-                  // Vertical Divider
-                  VerticalDivider(
-                    width: 1,
-                    thickness: 1,
-                    color: Colors.grey[300],
-                  ),
-
-                  // Chat Section
-                  Expanded(
-                    flex: 1,
-                    child: Card(
-                      margin: const EdgeInsets.only(right: 16, top: 8, bottom: 8),
-                      child: Column(
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      leading: Stack(
                         children: [
-                          // Chat Header
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.grey[100],
-                              border: Border(
-                                bottom: BorderSide(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.chat, size: 20),
-                                const SizedBox(width: 8),
-                                const Text(
-                                  'Chat',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                                const Spacer(),
-                                Text(
-                                  '${_messages.length}',
-                                  style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
+                          CircleAvatar(
+                            child: Text(
+                              player.username[0].toUpperCase(),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
                             ),
                           ),
-
-                          // Chat Messages List
-                          Expanded(
-                            child: ChatListView(
-                              messages: _messages,
-                              currentUserId: widget.currentUserId,
-                              scrollController: _chatScrollController,
-                            ),
-                          ),
-
-                          // Emoji Reactions Display
-                          if (_recentReactions.isNotEmpty)
-                            EmojiReactionsList(reactions: _recentReactions),
-
-                          // Emoji Picker
-                          Container(
-                            decoration: BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: Colors.grey[300]!,
-                                  width: 1,
-                                ),
-                              ),
-                            ),
-                            child: EmojiPicker(
-                              onEmojiSelected: _sendEmojiReaction,
-                            ),
-                          ),
-
-                          // Chat Input
-                          ChatInputField(
-                            onSendMessage: _sendChatMessage,
-                            onTypingStatusChanged: _onTypingStatusChanged,
+                          Positioned(
+                            right: 0,
+                            bottom: 0,
+                            child: _buildPlayerStatusIcon(player.status),
                           ),
                         ],
                       ),
+                      title: Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              player.username,
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          if (isCurrentHost) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.amber,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'HOST',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                      subtitle: Text(
+                        isTyping
+                            ? 'typing...'
+                            : _getPlayerStatusText(player.status),
+                        style: TextStyle(
+                          color: isTyping ? Colors.blue : null,
+                          fontStyle: isTyping ? FontStyle.italic : null,
+                        ),
+                      ),
+                      trailing: isHost && player.id != widget.currentUserId
+                          ? PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert),
+                              onSelected: (value) {
+                                switch (value) {
+                                  case 'kick':
+                                    _kickPlayer(player);
+                                    break;
+                                  case 'transfer':
+                                    _transferHost(player);
+                                    break;
+                                }
+                              },
+                              itemBuilder: (context) => [
+                                const PopupMenuItem(
+                                  value: 'transfer',
+                                  child: Text('Make Host'),
+                                ),
+                                const PopupMenuItem(
+                                  value: 'kick',
+                                  child: Text('Kick Player'),
+                                ),
+                              ],
+                            )
+                          : null,
                     ),
-                  ),
-                ],
+                  );
+                },
               ),
             ),
 
