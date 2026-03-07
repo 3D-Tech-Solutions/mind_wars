@@ -461,7 +461,7 @@ await offlineService.syncWithServer(
 ## Production Deployment
 
 ### Current Status
-Phase 1 development is complete (✅). The application is ready for backend deployment and production launch.
+Phase 1 frontend development is complete (✅), including the shipped 15-game catalog, offline-first client flows, and iOS 14+ / Android 8+ support. Public v1.0 still requires backend deployment, end-to-end beta validation, and App Store / Play Store release work before launch.
 
 ### Cloud Migration Plan
 See **[CLOUD_MIGRATION_PLAN.md](docs/project/CLOUD_MIGRATION_PLAN.md)** for comprehensive production deployment strategy:

@@ -1,14 +1,14 @@
 # Mind Wars - Project Status Summary
 
-**Last Updated**: November 2025  
-**Version**: 1.0.0  
-**Status**: Phase 1 Complete ✅
+**Last Updated**: March 2026
+**Version**: 1.0.1
+**Status**: Frontend Complete ✅ | Public Release Track In Progress ⏳
 
 ---
 
 ## Executive Summary
 
-Mind Wars is a cross-platform async multiplayer cognitive games platform built with Flutter. The project has successfully completed **Phase 1** (Epics 1-4) with **183 story points** delivered across **9 weeks** of development.
+Mind Wars is a cross-platform async multiplayer cognitive games platform built with Flutter. The repository currently contains a complete **frontend/gameplay foundation** with **15 shipped games**, offline-first mobile flows, and responsive support across the planned iOS and Android device range. Public v1.0 release work is still open: production backend deployment, end-to-end beta testing, store approval, and launch-blocking issue burn-down remain required before launch.
 
 ---
 
@@ -417,25 +417,22 @@ Mind Wars is a cross-platform async multiplayer cognitive games platform built w
 
 ---
 
-## Next Steps (Phase 2)
+## Next Steps to Public v1.0
 
-### Epic 5: Social Features & Engagement (Planned)
-- Friend system and invites
-- Tournaments and competitions
-- Achievements and challenges
-- Social sharing
+### 1. Backend Deployment & Cloud Readiness
+- Deliver Epic 13 cloud migration
+- Deploy RESTful API and Socket.io infrastructure
+- Provision production database, caching, monitoring, and secrets management
 
-### Epic 6: Monetization & Growth (Planned)
-- In-app purchases
-- Premium subscription
-- Ad integration
-- Referral system
+### 2. Beta Validation & Issue Burn-Down
+- Run TestFlight and Play internal testing across supported phones and tablets
+- Verify all 15 shipped games end-to-end in multiplayer and offline flows
+- Resolve all launch-blocking defects before release sign-off
 
-### Epic 7: Advanced Features (Planned)
-- Voice chat
-- Spectator mode
-- Replays and highlights
-- Custom game modes
+### 3. Store Readiness & Launch
+- Complete App Store Connect and Play Console setup
+- Finalize release assets, privacy/compliance metadata, and support workflows
+- Submit release candidates and complete approval cycles
 
 ---
 
@@ -470,7 +467,7 @@ Mind Wars is a cross-platform async multiplayer cognitive games platform built w
 ## Success Metrics
 
 ### Technical Metrics
-- ✅ 100% of planned features delivered
+- ✅ 100% of Phase 1 planned features delivered
 - ✅ 126 tests with 100% pass rate
 - ✅ Zero critical bugs
 - ✅ Platform parity achieved
@@ -500,7 +497,7 @@ Mind Wars is a cross-platform async multiplayer cognitive games platform built w
 
 ## Conclusion
 
-Phase 1 of Mind Wars is **COMPLETE** and **PRODUCTION-READY**:
+Phase 1 of Mind Wars is **COMPLETE** and the **frontend release candidate is in place**:
 
 ✅ All 4 epics delivered (183 story points)  
 ✅ 20 features fully implemented  
@@ -511,12 +508,12 @@ Phase 1 of Mind Wars is **COMPLETE** and **PRODUCTION-READY**:
 ✅ 126 tests with 100% pass rate  
 ✅ ~18,000 lines of code  
 ✅ Comprehensive documentation  
-✅ Ready for App Store and Play Store deployment  
+⏳ Backend deployment, beta sign-off, and store approvals still required for public v1.0
 
-The foundation is solid, the architecture is scalable, and the app is ready for beta testing and launch. 🚀
+The foundation is solid, the architecture is scalable, and the remaining work is now clearly on the v1.0 release track: backend deployment, beta validation, and store launch readiness. 🚀
 
 ---
 
-**Status**: Phase 1 Complete ✅  
-**Next Phase**: Backend Deployment + Beta Testing  
-**Target Launch**: Q1 2026
+**Status**: Frontend Complete ✅ | Release Track In Progress ⏳
+**Next Phase**: Epic 13 Backend Deployment + Beta Testing
+**Target Launch**: After backend deployment, launch-blocking issue burn-down, and store approvals
