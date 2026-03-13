@@ -42,6 +42,44 @@ class ProfanityFilterService {
   }
 
   /**
+   * [2026-03-13 Security] Normalize text so leetspeak and punctuation-heavy
+   * bypass attempts can be reviewed by the same moderation pipeline.
+   * @param {string} message - Original message
+   * @returns {string} - Normalized message for detection
+   */
+  _normalizeForDetection(message) {
+    if (!message || typeof message !== 'string') {
+      return '';
+    }
+
+    const leetspeakMap = {
+      '@': 'a',
+      '4': 'a',
+      '3': 'e',
+      '1': 'i',
+      '!': 'i',
+      '|': 'i',
+      '0': 'o',
+      '$': 's',
+      '5': 's',
+      '7': 't',
+      '+': 't',
+      '8': 'b'
+    };
+
+    return message
+      .normalize('NFKD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .split('')
+      .map((character) => leetspeakMap[character] || character)
+      .join('')
+      .replace(/[^a-z\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
    * Create a new Filter instance with the given configuration
    * @private
    * @param {FilterConfig} config - Configuration for the filter
@@ -206,6 +244,10 @@ class ProfanityFilterService {
       return {
         filtered: '',
         hasProfanity: false,
+        hasBypassAttempt: false,
+        requiresReview: false,
+        flaggedReason: null,
+        moderationAction: 'allow',
         originalLength: 0,
       };
     }
@@ -213,11 +255,25 @@ class ProfanityFilterService {
     const config = contextId ? this.getConfiguration(contextId) : this.defaultConfig;
     const filter = contextId ? this._getFilter(config) : this.defaultFilter;
     
+    const normalizedMessage = this._normalizeForDetection(message);
     const hasProfanity = filter.isProfane(message);
+    const hasBypassAttempt = !hasProfanity &&
+      normalizedMessage.length > 0 &&
+      normalizedMessage !== message.toLowerCase().trim() &&
+      filter.isProfane(normalizedMessage);
+    const requiresReview = hasProfanity || hasBypassAttempt;
+    const flaggedReason = hasBypassAttempt
+      ? 'Profanity bypass attempt detected'
+      : (hasProfanity ? 'Profanity detected' : null);
+    const moderationAction = hasBypassAttempt ? 'review' : (hasProfanity ? 'filtered' : 'allow');
 
     return {
-      filtered: hasProfanity ? filter.clean(message) : message,
+      filtered: hasBypassAttempt ? '[message removed pending moderation]' : (hasProfanity ? filter.clean(message) : message),
       hasProfanity,
+      hasBypassAttempt,
+      requiresReview,
+      flaggedReason,
+      moderationAction,
       originalLength: message.length,
       strictness: config.strictness
     };

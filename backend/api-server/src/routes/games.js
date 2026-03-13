@@ -10,6 +10,68 @@ const router = express.Router();
 router.use(authenticate);
 router.use(standardLimiter);
 
+// [2026-03-13 Bugfix] Normalize incoming submissions so the backend can derive
+// authoritative scores from raw gameplay data even when clients send nested
+// `gameData` payloads.
+function normalizeGameSubmission(gameId, requestBody = {}) {
+  const source = requestBody.gameData && typeof requestBody.gameData === 'object'
+    ? requestBody.gameData
+    : requestBody;
+
+  const numericValue = (value, fallback = 0) => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  };
+
+  return {
+    gameId,
+    lobbyId: requestBody.lobbyId,
+    submittedScore: numericValue(requestBody.score, null),
+    timeTaken: numericValue(source.timeTaken ?? requestBody.timeTaken, 0),
+    hintsUsed: numericValue(source.hintsUsed ?? requestBody.hintsUsed, 0),
+    perfect: Boolean(source.perfect ?? requestBody.perfect),
+    wrongAnswers: numericValue(source.wrongAnswers ?? requestBody.wrongAnswers, 0),
+    guesses: numericValue(source.guesses ?? requestBody.guesses, 0),
+    pairsFound: numericValue(source.pairsFound ?? requestBody.pairsFound, 0),
+    streakMultiplier: numericValue(source.streakMultiplier ?? requestBody.streakMultiplier, 1),
+    totalLetters: numericValue(source.totalLetters ?? requestBody.totalLetters, 0),
+    uniqueWords: numericValue(source.uniqueWords ?? requestBody.uniqueWords, 0),
+    solved: source.solved ?? requestBody.solved,
+    completed: source.completed ?? requestBody.completed,
+  };
+}
+
+// [2026-03-13 Security] Calculate scores exclusively from gameplay metrics on
+// the server. Client-reported score fields are ignored except for debugging.
+function calculateValidatedScore(submission) {
+  const secondsElapsed = Math.max(0, Math.floor(submission.timeTaken / 1000));
+  const baseTimedScore = Math.max(0, 90 - secondsElapsed);
+  const noHintBonus = submission.hintsUsed === 0 ? 20 : 0;
+  const perfectBonus = submission.perfect ? 15 : 0;
+  const hintPenalty = submission.hintsUsed * 5;
+  const wrongAnswerPenalty = submission.wrongAnswers * 2;
+
+  switch (submission.gameId) {
+    case 'memory-match':
+      return Math.max(0, Math.round(submission.pairsFound * Math.max(1, submission.streakMultiplier)));
+    case 'code-breaker': {
+      const guesses = Math.max(0, submission.guesses);
+      const solved = submission.solved !== false && submission.completed !== false;
+      if (!solved || guesses > 10) {
+        return 0;
+      }
+      return Math.max(0, 90 - (10 * guesses) + (guesses <= 6 ? 15 : 0));
+    }
+    case 'anagram-attack':
+    case 'word-builder':
+      return Math.max(0, submission.totalLetters + (submission.uniqueWords * 5) - hintPenalty);
+    case 'vocabulary-showdown':
+      return Math.max(0, baseTimedScore + noHintBonus - wrongAnswerPenalty);
+    default:
+      return Math.max(0, baseTimedScore + noHintBonus + perfectBonus - hintPenalty - wrongAnswerPenalty);
+  }
+}
+
 // GET /api/games - Get available games
 router.get('/', async (req, res, next) => {
   try {
@@ -44,9 +106,10 @@ router.get('/', async (req, res, next) => {
 // POST /api/games/:id/submit - Submit game result
 router.post('/:id/submit', [
   body('lobbyId').isUUID(),
-  body('score').isNumeric(),
-  body('timeTaken').isNumeric(),
-  body('hintsUsed').isNumeric()
+  body('score').optional().isNumeric(),
+  body('timeTaken').optional().isNumeric(),
+  body('hintsUsed').optional().isNumeric(),
+  body('gameData').optional().isObject()
 ], async (req, res, next) => {
   try {
     const errors = validationResult(req);
@@ -58,7 +121,8 @@ router.post('/:id/submit', [
     }
 
     const { id: gameId } = req.params;
-    const { lobbyId, score, timeTaken, hintsUsed, perfect } = req.body;
+    const submission = normalizeGameSubmission(gameId, req.body);
+    const { lobbyId, submittedScore, timeTaken, hintsUsed, perfect } = submission;
     const userId = req.user.id;
 
     // Validate game exists in lobby
@@ -81,8 +145,9 @@ router.post('/:id/submit', [
       throw new AppError('Player not in lobby', 403);
     }
 
-    // Calculate validated score (server-side validation to prevent cheating)
-    const validatedScore = calculateScore(score, timeTaken, hintsUsed, perfect);
+    // [2026-03-13 Security] Derive the score from normalized gameplay data on
+    // the server rather than trusting the client to supply a final score.
+    const validatedScore = calculateValidatedScore(submission);
 
     // Save game result
     const result = await transaction(async (client) => {
@@ -108,7 +173,7 @@ router.post('/:id/submit', [
       data: {
         id: result.id,
         validatedScore: result.score,
-        originalScore: score,
+        originalScore: submittedScore,
         timeTaken: result.time_taken,
         hintsUsed: result.hints_used,
         perfect: result.perfect
@@ -142,19 +207,6 @@ router.post('/:id/validate-move', async (req, res, next) => {
   }
 });
 
-// Helper: Calculate validated score (anti-cheat)
-function calculateScore(rawScore, timeTaken, hintsUsed, perfect) {
-  // Unified scoring formula from Flutter app:
-  // Score = (90 - seconds) + (20 × noHints) + (15 × perfect) - (5 × hints)
-  const timeBonus = Math.max(0, 90 - Math.floor(timeTaken / 1000));
-  const noHintBonus = hintsUsed === 0 ? 20 : 0;
-  const perfectBonus = perfect ? 15 : 0;
-  const hintPenalty = hintsUsed * 5;
-
-  const calculatedScore = timeBonus + noHintBonus + perfectBonus - hintPenalty;
-
-  // Ensure score is not negative
-  return Math.max(0, Math.min(calculatedScore, rawScore));
-}
-
 module.exports = router;
+module.exports.normalizeGameSubmission = normalizeGameSubmission;
+module.exports.calculateValidatedScore = calculateValidatedScore;
