@@ -89,7 +89,7 @@ The following nine games define the public v1.0 release catalog.
 #### 1.3.6 24 Puzzle
 - Server generates a 4-number set with at least one valid 24 solution
 - Player submits an expression string; server evaluates the result
-- Score equals `90 − seconds − (5 × hints) + 20 if no hints`
+- Score equals `90 − net active seconds − (5 × hints) + 20 if no hints`
 - Impossible sets are rejected before distribution
 - Server tracks net active time, including app background/resume behavior
 
@@ -108,7 +108,7 @@ The following nine games define the public v1.0 release catalog.
 
 #### 1.3.9 Memory Match
 - Card layout shuffled server-side with the same layout per Battle
-- Board reshuffle every 3 turns from the same deterministic seed
+- Board reshuffle every 3 total turns across the shared Battle state from the same deterministic seed
 - Score uses pairs found multiplied by streak multiplier
 - Opponents must not be able to infer unrevealed card state before a card is intentionally revealed
 
@@ -238,12 +238,12 @@ Mind Wars chat is persistent, lobby-scoped, and accessible from iOS, Android, an
 | C-03 | Cross-device access | MUST | History and live updates match on iOS, Android, and web |
 | C-04 | Sender identification | MUST | Username, avatar, and timestamp render correctly |
 | C-05a | Profanity filter | MUST | Hate speech and slurs are replaced before authoritative write |
-| C-05b | Profanity bypass detection | SHOULD | Bypass attempts (spacing, leetspeak, homoglyphs) are flagged into an admin moderation queue for review |
+| C-05b | Profanity bypass detection | SHOULD | Bypass attempts (spacing, leetspeak, homoglyphs) are posted only in filtered form and are flagged into an admin moderation queue for review |
 | C-06 | Emoji reactions | MUST | Reaction counts update in real time |
 | C-07 | Chat push notifications | MUST | Backgrounded clients receive chat notifications |
 | C-08 | System messages | MUST | Phase transitions and completions emit chat system messages |
 | C-09 | Message character limit | MUST | Messages capped at 500 characters |
-| C-10 | GIF and sticker support | SHOULD | Only assets from the first-party curated/allowlisted GIF and sticker pack render inline; non-approved media is rejected with an error |
+| C-10 | GIF and sticker support | SHOULD | Only assets from the first-party curated/allowlisted GIF and sticker pack maintained in backend content configuration render inline; non-approved media is rejected with an error |
 | C-11 | Message reporting | SHOULD | Messages can be flagged for admin review |
 | C-12 | Scroll-to-latest on load | SHOULD | Chat opens at the newest message |
 
