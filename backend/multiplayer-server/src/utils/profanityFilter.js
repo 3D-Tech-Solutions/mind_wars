@@ -67,13 +67,18 @@ class ProfanityFilterService {
       '8': 'b'
     };
 
-    return message
+    const normalized = message
       .normalize('NFKD')
       .replace(/[\u0300-\u036f]/g, '')
-      .toLowerCase()
-      .split('')
-      .map((character) => leetspeakMap[character] || character)
-      .join('')
+      .toLowerCase();
+
+    const translatedCharacters = [];
+    for (const character of normalized) {
+      translatedCharacters.push(leetspeakMap[character] || character);
+    }
+    const translated = translatedCharacters.join('');
+
+    return translated
       .replace(/[^a-z\s]/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
@@ -255,11 +260,12 @@ class ProfanityFilterService {
     const config = contextId ? this.getConfiguration(contextId) : this.defaultConfig;
     const filter = contextId ? this._getFilter(config) : this.defaultFilter;
     
+    const lowerTrimmedMessage = message.toLowerCase().trim();
     const normalizedMessage = this._normalizeForDetection(message);
     const hasProfanity = filter.isProfane(message);
     const hasBypassAttempt = !hasProfanity &&
       normalizedMessage.length > 0 &&
-      normalizedMessage !== message.toLowerCase().trim() &&
+      normalizedMessage !== lowerTrimmedMessage &&
       filter.isProfane(normalizedMessage);
     const requiresReview = hasProfanity || hasBypassAttempt;
     const flaggedReason = hasBypassAttempt

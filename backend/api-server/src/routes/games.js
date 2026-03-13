@@ -18,7 +18,7 @@ function normalizeGameSubmission(gameId, requestBody = {}) {
     ? requestBody.gameData
     : requestBody;
 
-  const numericValue = (value, fallback = 0) => {
+  const parseNumericOrDefault = (value, fallback = 0) => {
     const number = Number(value);
     return Number.isFinite(number) ? number : fallback;
   };
@@ -26,16 +26,19 @@ function normalizeGameSubmission(gameId, requestBody = {}) {
   return {
     gameId,
     lobbyId: requestBody.lobbyId,
-    submittedScore: numericValue(requestBody.score, null),
-    timeTaken: numericValue(source.timeTaken ?? requestBody.timeTaken, 0),
-    hintsUsed: numericValue(source.hintsUsed ?? requestBody.hintsUsed, 0),
+    // [2026-03-13 Integration] Preserve the client-provided score separately
+    // for debugging/telemetry while still deriving the authoritative score from
+    // gameplay metrics below.
+    submittedScore: parseNumericOrDefault(requestBody.score, null),
+    timeTaken: parseNumericOrDefault(source.timeTaken ?? requestBody.timeTaken, 0),
+    hintsUsed: parseNumericOrDefault(source.hintsUsed ?? requestBody.hintsUsed, 0),
     perfect: Boolean(source.perfect ?? requestBody.perfect),
-    wrongAnswers: numericValue(source.wrongAnswers ?? requestBody.wrongAnswers, 0),
-    guesses: numericValue(source.guesses ?? requestBody.guesses, 0),
-    pairsFound: numericValue(source.pairsFound ?? requestBody.pairsFound, 0),
-    streakMultiplier: numericValue(source.streakMultiplier ?? requestBody.streakMultiplier, 1),
-    totalLetters: numericValue(source.totalLetters ?? requestBody.totalLetters, 0),
-    uniqueWords: numericValue(source.uniqueWords ?? requestBody.uniqueWords, 0),
+    wrongAnswers: parseNumericOrDefault(source.wrongAnswers ?? requestBody.wrongAnswers, 0),
+    guesses: parseNumericOrDefault(source.guesses ?? requestBody.guesses, 0),
+    pairsFound: parseNumericOrDefault(source.pairsFound ?? requestBody.pairsFound, 0),
+    streakMultiplier: parseNumericOrDefault(source.streakMultiplier ?? requestBody.streakMultiplier, 1),
+    totalLetters: parseNumericOrDefault(source.totalLetters ?? requestBody.totalLetters, 0),
+    uniqueWords: parseNumericOrDefault(source.uniqueWords ?? requestBody.uniqueWords, 0),
     solved: source.solved ?? requestBody.solved,
     completed: source.completed ?? requestBody.completed,
   };
@@ -53,7 +56,10 @@ function calculateValidatedScore(submission) {
 
   switch (submission.gameId) {
     case 'memory-match':
-      return Math.max(0, Math.round(submission.pairsFound * Math.max(1, submission.streakMultiplier)));
+      // [2026-03-13 Feature] Memory Match score follows server-side pairs found
+      // and streak multiplier rather than any client-reported total.
+      const validStreakMultiplier = Math.max(1, submission.streakMultiplier);
+      return Math.max(0, Math.round(submission.pairsFound * validStreakMultiplier));
     case 'code-breaker': {
       const guesses = Math.max(0, submission.guesses);
       const solved = submission.solved !== false && submission.completed !== false;
