@@ -110,7 +110,7 @@ The following nine games define the public v1.0 release catalog.
 - Card layout shuffled server-side with the same layout per Battle
 - Board reshuffle every 3 turns from the same deterministic seed
 - Score uses pairs found multiplied by streak multiplier
-- Flip animation must not leak hidden card state to opponents
+- Flip animation must not leak hidden card state to opponents through shared state, timing differences, network payloads, or visual artifacts before a card is intentionally revealed
 
 ---
 
@@ -237,12 +237,12 @@ Mind Wars chat is persistent, lobby-scoped, and accessible from iOS, Android, an
 | C-02 | Persistent message history | MUST | Full history remains visible across app restarts |
 | C-03 | Cross-device access | MUST | History and live updates match on iOS, Android, and web |
 | C-04 | Sender identification | MUST | Username, avatar, and timestamp render correctly |
-| C-05 | Profanity filter | MUST | Hate speech and slurs replaced before authoritative write |
+| C-05 | Profanity filter | MUST | Hate speech and slurs replaced before authoritative write, with bypass attempts (spacing, l33tspeak, homoglyphs) flagged for review |
 | C-06 | Emoji reactions | MUST | Reaction counts update in real time |
 | C-07 | Chat push notifications | MUST | Backgrounded clients receive chat notifications |
 | C-08 | System messages | MUST | Phase transitions and completions emit chat system messages |
 | C-09 | Message character limit | MUST | Messages capped at 500 characters |
-| C-10 | GIF and sticker support | SHOULD | Approved GIFs and stickers render inline |
+| C-10 | GIF and sticker support | SHOULD | Only approved/allowlisted GIFs and stickers render inline, with media validation before delivery |
 | C-11 | Message reporting | SHOULD | Messages can be flagged for admin review |
 | C-12 | Scroll-to-latest on load | SHOULD | Chat opens at the newest message |
 
@@ -270,4 +270,3 @@ Public v1.0 is shippable only when:
 - Battle phase automation works without manual intervention
 - Offline sync and autosave scenarios pass
 - Persistent chat and moderation requirements pass across supported clients
-
