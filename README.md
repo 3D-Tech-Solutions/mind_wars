@@ -449,19 +449,19 @@ await offlineService.syncWithServer(
 - ✅ 15+ badge achievements
 - ✅ Streak tracking with multipliers
 
-### Architecture & Infrastructure ✅
+### Architecture & Infrastructure Status
 - ✅ Offline-first architecture with SQLite
 - ✅ Sync queue with retry logic (max 5 retries)
 - ✅ Conflict resolution (server wins)
-- ✅ RESTful API with server-side validation
-- ✅ Security-first (server-side validation, anti-cheating)
+- ⏳ RESTful API with partial server-side validation (score validation implemented; full move validation and public release hardening in progress)
+- ⏳ Security-first posture (baseline server-side validation in place; advanced anti-cheating and real-time turn validation in progress)
 - ✅ Mobile-first design (5" touch screens scaling to 12" tablets)
 - ✅ Analytics instrumentation
 
 ## Production Deployment
 
 ### Current Status
-Phase 1 frontend development is complete (✅), including the shipped 15-game catalog, offline-first client flows, and iOS 14+ / Android 8+ support. Public v1.0 still requires backend deployment, end-to-end beta validation, and App Store / Play Store release work before launch.
+Phase 1 frontend development is complete (✅), including the shipped 15-game catalog, offline-first client flows, and iOS 14+ / Android 8+ support. Backend services (RESTful API, full server-side move validation, and Socket.io multiplayer turn handling) are implemented in an early/stub form and still require production-ready hardening. Public v1.0 still requires backend deployment, end-to-end beta validation, and App Store / Play Store release work before launch.
 
 ### Cloud Migration Plan
 See **[CLOUD_MIGRATION_PLAN.md](docs/project/CLOUD_MIGRATION_PLAN.md)** for comprehensive production deployment strategy:

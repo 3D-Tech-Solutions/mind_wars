@@ -78,7 +78,7 @@ Foundation     Social/Retention  Complete       Expansion
 - ✅ The shipped catalog remains at **15 complete games** with no launch-blocking gameplay defects
 - ✅ Backend services are deployed, monitored, and stable for cross-platform multiplayer
 - ✅ Beta testing confirms phone and tablet readiness across supported iOS and Android devices
-- ✅ No Sev1 / Sev2 open defects remain at release sign-off
+- ✅ No **Critical** or **High** severity open defects remain at release sign-off
 - ✅ App Store and Play Store approvals are complete
 
 ---

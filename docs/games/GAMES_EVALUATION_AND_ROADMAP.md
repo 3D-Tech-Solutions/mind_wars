@@ -4,7 +4,7 @@
 **Last Updated**: March 2026
 **Status**: Historical Planning Reference
 
-> **[2026-03-07 Documentation] Status update:** this document captures the original game-planning exercise. The current repository already ships **15 implemented games** in `/lib/games/game_catalog.dart`; use `/docs/project/PROJECT_STATUS.md` and `/ROADMAP.md` for the current state and the remaining path to public v1.0.
+> **[2026-03-07 Documentation] Status update:** this document captures the original game-planning exercise. The current repository already ships **15 implemented games** in [`/lib/games/game_catalog.dart`](../../lib/games/game_catalog.dart); use [`/docs/project/PROJECT_STATUS.md`](../project/PROJECT_STATUS.md) and [`/ROADMAP.md`](../../ROADMAP.md) for the current state and the remaining path to public v1.0.
 
 ---
 

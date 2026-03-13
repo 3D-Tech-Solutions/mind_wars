@@ -2,13 +2,13 @@
 
 **Last Updated**: March 2026
 **Version**: 1.0.1
-**Status**: Frontend Complete ✅ | Public Release Track In Progress ⏳
-
+**Status**: Frontend Complete ✅ | Release Track In Progress ⏳
+<!-- [2026-03-13 Documentation] Aligned status phrasing between header and footer to use a single "Release Track In Progress" label for clarity. -->
 ---
 
 ## Executive Summary
 
-Mind Wars is a cross-platform async multiplayer cognitive games platform built with Flutter. The repository currently contains a complete **frontend/gameplay foundation** with **15 shipped games**, offline-first mobile flows, and responsive support across the planned iOS and Android device range. Public v1.0 release work is still open: production backend deployment, end-to-end beta testing, store approval, and launch-blocking issue burn-down remain required before launch.
+Mind Wars is a cross-platform async multiplayer cognitive games platform built with Flutter. The repository currently contains a complete **frontend/gameplay foundation** with **15 shipped games**, offline-first mobile flows, responsive support across the planned iOS and Android device range, and implemented **client-side turn management** with **backend turn/move validation currently stubbed and pending full server-side enforcement**. Public v1.0 release work is still open: production backend deployment, end-to-end beta testing, store approval, and launch-blocking issue burn-down remain required before launch.
 
 ---
 
