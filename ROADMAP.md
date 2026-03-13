@@ -3,9 +3,9 @@
 ## Document Purpose
 This document provides a high-level visual roadmap for Mind Wars development, showing the planned timeline, key milestones, and feature delivery across development phases.
 
-**Last Updated**: November 2025  
+**Last Updated**: March 2026
 **Version**: 1.0  
-**Status**: Active Development
+**Status**: Release Planning
 
 ---
 
@@ -26,6 +26,12 @@ This document provides a high-level visual roadmap for Mind Wars development, sh
 ### Product Vision
 **Mind Wars** is a private group cognitive competition platform enabling Family Mind Wars, Friends Mind Wars, and Office/Colleagues Mind Wars through async multiplayer gameplay across iOS and Android.
 
+### Current State Snapshot
+- ✅ **Frontend foundation complete**: Authentication, lobby flows, offline-first services, and responsive mobile UX are already implemented.
+- ✅ **Games shipped in the repository today**: 15 games across Memory, Logic, Attention, Spatial, and Language (`/lib/games/game_catalog.dart`).
+- ✅ **Device coverage already scoped for launch**: iOS 14+, Android 8+, and responsive layouts from phones to tablets.
+- ⏳ **Still required for public v1.0**: Production backend deployment, end-to-end beta testing, blocking defect burn-down, and store submission/approval.
+
 ### Timeline Summary
 ```
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -39,28 +45,41 @@ Month 1-2     Month 3-4        Month 5-6         Month 7+
 │   Core   │  │   & Pro  │    │  & Polish│    │ Features │
 └──────────┘  └──────────┘    └──────────┘    └──────────┘
 
-Launch-Ready   Engagement      Production      Competitive
-   Core         Features         Ready         Advantage
- Experience
+Completed      Completed        Frontend        Release
+Foundation     Social/Retention  Complete       Expansion
 ```
 
 ### Development Phases
 
 | Phase | Duration | Goal | Story Points | Key Deliverables |
 |-------|----------|------|--------------|------------------|
-| **Phase 1** | Months 1-2 | Launch-ready core experience | 170 pts | Auth, Lobbies, Core Gameplay, Cross-Platform |
-| **Phase 2** | Months 3-4 | Rich social & retention hooks | 96 pts | Chat, Emojis, Badges, Leaderboards, Streaks |
-| **Phase 3** | Months 5-6 | Production reliability | 89 pts | Offline Mode, Sync, Analytics, Cross-Platform Complete |
-| **Phase 4** | Month 7+ | Competitive differentiation | TBD | Voice Chat, Tournaments, Advanced Features |
+| **Phase 1** | Completed | Launch-ready core experience | 170 pts | Auth, Lobbies, Core Gameplay, Cross-Platform |
+| **Phase 2** | Completed | Rich social & retention hooks | 96 pts | Chat, Emojis, Badges, Leaderboards, Streaks |
+| **Phase 3** | Completed | Frontend reliability & offline readiness | 89 pts | Offline Mode, Sync, Analytics, Cross-Platform Complete |
+| **v1.0 Release Track** | Next 14-18 weeks | Public release readiness | Epic 13 + beta | Backend deployment, QA, store readiness, approvals |
+| **Phase 4** | Post-v1.0 | Competitive differentiation | TBD | Voice Chat, Tournaments, Advanced Features |
 
 ### Key Milestones
-- **Month 1 End**: Authentication + Basic Lobbies
-- **Month 2 End**: Core Gameplay + MVP Launch
-- **Month 3 End**: Social Features Complete
-- **Month 4 End**: Full Progression System
-- **Month 5 End**: Offline Mode Functional
-- **Month 6 End**: Production v1.0 Launch
-- **Month 7+**: Continuous Enhancement
+- **Completed**: Authentication, lobbies, progression hooks, offline mode, and 15 shipped games
+- **Weeks 1-8 of release track**: Production cloud migration and backend deployment
+- **Weeks 9-12 of release track**: End-to-end beta testing and blocking defect resolution
+- **Weeks 13-16 of release track**: Store submission, approvals, and launch readiness sign-off
+- **Post-v1.0**: Continuous enhancement
+
+### v1.0 Release Track
+
+| Step | Duration | Outcome |
+|------|----------|---------|
+| **1. Backend deployment** | 8 weeks | Deliver Epic 13 cloud migration, deploy REST + Socket.io services, provision production data stores, and enable monitoring/alerting |
+| **2. Beta validation** | 4 weeks | Run TestFlight / Play internal testing, verify all 15 shipped games end-to-end, and close launch-blocking defects |
+| **3. Public store launch** | 2-4 weeks | Complete store assets/compliance, submit builds, clear approvals, and execute launch checklist |
+
+### v1.0 Exit Criteria
+- ✅ The shipped catalog remains at **15 complete games** with no launch-blocking gameplay defects
+- ✅ Backend services are deployed, monitored, and stable for cross-platform multiplayer
+- ✅ Beta testing confirms phone and tablet readiness across supported iOS and Android devices
+- ✅ No **Critical** or **High** severity open defects remain at release sign-off
+- ✅ App Store and Play Store approvals are complete
 
 ---
 
@@ -272,7 +291,7 @@ Week 13-14 (Sprint 7)
 ## Phase 3: Offline & Polish (Months 5-6)
 
 ### Overview
-**Goal**: Production-ready app with offline capabilities  
+**Goal**: Frontend-ready app with offline capabilities
 **Duration**: 5 weeks (3 sprints)  
 **Story Points**: 89 points  
 **Key Focus**: Reliability and optimization
@@ -300,7 +319,7 @@ Week 19-20 (Sprint 10)
 │ • Launch Polish     │
 └─────────────────────┘
          ↓
-  PRODUCTION v1.0 🚀
+ Frontend Release Candidate ✅
 ```
 
 ### Epic Breakdown
@@ -343,7 +362,7 @@ Week 19-20 (Sprint 10)
 
 **Milestones**:
 - Week 19 End: Cross-platform stable
-- Week 20 End: **PRODUCTION v1.0 LAUNCH** 🚀
+- Week 20 End: **Frontend release candidate complete** ✅
 
 ### Phase 3 Deliverables
 
@@ -362,7 +381,7 @@ Week 19-20 (Sprint 10)
 - [ ] API response time < 500ms (p95)
 - [ ] App crash rate < 1%
 - [ ] App rating > 4.5 stars
-- [ ] Ready for App Store & Google Play launch
+- [ ] Ready to enter backend deployment + beta release track
 
 ---
 

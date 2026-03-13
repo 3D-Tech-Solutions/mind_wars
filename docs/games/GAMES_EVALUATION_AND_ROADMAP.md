@@ -1,8 +1,10 @@
 # Mind Wars - Games Evaluation and Implementation Roadmap 🎮
 
 **Document Purpose**: Comprehensive evaluation of games from research and prioritized implementation plan  
-**Last Updated**: November 2025  
-**Status**: Strategic Planning
+**Last Updated**: March 2026
+**Status**: Historical Planning Reference
+
+> **[2026-03-07 Documentation] Status update:** this document captures the original game-planning exercise. The current repository already ships **15 implemented games** in [`/lib/games/game_catalog.dart`](../../lib/games/game_catalog.dart); use [`/docs/project/PROJECT_STATUS.md`](../project/PROJECT_STATUS.md) and [`/ROADMAP.md`](../../ROADMAP.md) for the current state and the remaining path to public v1.0.
 
 ---
 
@@ -135,7 +137,7 @@ Each game is evaluated across 6 dimensions:
 
 ---
 
-## MVP Implementation (Months 1-2)
+## MVP Implementation (Historical Months 1-2 Plan)
 
 **Goal**: Launch-ready core experience with proven, simple games  
 **Target**: 4-6 games demonstrating platform value  
