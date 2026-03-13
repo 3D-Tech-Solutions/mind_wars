@@ -1,5 +1,8 @@
 # Mind Wars - MVP Document
 
+<!-- [2026-03-13 Documentation] Marked this file as a historical MVP/alpha snapshot so it does not conflict with the March 2026 public v1.0 requirements baseline. -->
+> **Historical note:** this document reflects the November 2025 MVP/alpha baseline. For the current public-launch acceptance baseline, use [`docs/project/V1_0_RELEASE_REQUIREMENTS.md`](project/V1_0_RELEASE_REQUIREMENTS.md) together with [`docs/project/PROJECT_STATUS.md`](project/PROJECT_STATUS.md). Statements in this file about production readiness or completed backend validation are historical MVP-era claims, not the current public-v1.0 release gate.
+
 **Current Status**: Phase 1 ✅ Complete | Phase 2 In Progress | POC/MVP Ready for Distribution  
 **Date**: November 15, 2025  
 **Version**: 1.0

@@ -69,7 +69,9 @@ Project management, technical specifications, and development processes:
 - [Epic 4 Checklist](project/EPIC_4_CHECKLIST.md) - Complete feature checklist
 
 **Project Management:**
+<!-- [2026-03-13 Documentation] Added the public v1.0 release requirements document to the project docs index. -->
 - [Project Status](project/PROJECT_STATUS.md) - Current project status and progress
+- [v1.0 Release Requirements](project/V1_0_RELEASE_REQUIREMENTS.md) - March 2026 public-release acceptance baseline
 - [Phase 1 Complete](project/PHASE_1_COMPLETE.md) - Phase 1 completion summary
 - [Sprint Templates](project/SPRINT_TEMPLATES.md) - Sprint planning and retrospective templates
 - [Backlog Guide](project/BACKLOG_GUIDE.md) - Guide to navigating project documentation
