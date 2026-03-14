@@ -34,12 +34,19 @@ router.get('/weekly', async (req, res, next) => {
 
     if (!leaderboard) {
       // Calculate weekly leaderboard (Monday to Sunday)
+      /// [2026-03-14 Bugfix] Align average_time_taken with tie-break ordering
+      ///
+      /// Previously, the SELECT used AVG(gr.time_taken) while ORDER BY used
+      /// AVG(COALESCE(gr.time_taken, MISSING_TIME_FALLBACK)), which could
+      /// cause the reported averageTimeTaken to diverge from the metric used
+      /// for ranking whenever NULL time_taken values existed. We now apply
+      /// COALESCE before AVG and ROUND, matching WEEKLY_LEADERBOARD_ORDER_BY.
       const result = await query(
          `SELECT
             u.id, u.display_name, u.avatar_url, u.level,
             SUM(gr.score) as weekly_score,
             COUNT(gr.id) as games_played,
-            COALESCE(ROUND(AVG(gr.time_taken)), ${MISSING_TIME_FALLBACK}) as average_time_taken,
+            ROUND(AVG(COALESCE(gr.time_taken, ${MISSING_TIME_FALLBACK}))) as average_time_taken,
             ROW_NUMBER() OVER (ORDER BY ${WEEKLY_LEADERBOARD_ORDER_BY}) as rank
           FROM users u
           JOIN game_results gr ON u.id = gr.user_id
@@ -71,7 +78,7 @@ router.get('/weekly', async (req, res, next) => {
       const userRankResult = await query(
         `WITH ranked_users AS (
            SELECT u.id, SUM(gr.score) as weekly_score,
-                  COALESCE(ROUND(AVG(gr.time_taken)), ${MISSING_TIME_FALLBACK}) as average_time_taken,
+                  ROUND(AVG(COALESCE(gr.time_taken, ${MISSING_TIME_FALLBACK}))) as average_time_taken,
                   ROW_NUMBER() OVER (ORDER BY ${WEEKLY_LEADERBOARD_ORDER_BY}) as rank
             FROM users u
             JOIN game_results gr ON u.id = gr.user_id
@@ -115,11 +122,19 @@ router.get('/all-time', async (req, res, next) => {
     let leaderboard = await getCache(cacheKey);
 
     if (!leaderboard) {
+      /// [2026-03-14 Bugfix] Align all-time average_time_taken with ORDER BY expression
+      ///
+      /// Previously, the SELECT used AVG(gr.time_taken) (ignoring NULLs) while
+      /// ALL_TIME_LEADERBOARD_ORDER_BY used AVG(COALESCE(gr.time_taken, MISSING_TIME_FALLBACK)).
+      /// This could cause users with missing completion times to see an
+      /// averageTimeTaken value that did not correspond to their tie-break rank.
+      /// We now compute average_time_taken from AVG(COALESCE(gr.time_taken, MISSING_TIME_FALLBACK))
+      /// so that the returned value matches the metric used for ordering.
       const result = await query(
         `SELECT
            u.id, u.display_name, u.avatar_url, u.level, u.total_score,
             u.games_played, u.games_won,
-           COALESCE(ROUND(AVG(gr.time_taken)), ${MISSING_TIME_FALLBACK}) as average_time_taken,
+           COALESCE(ROUND(AVG(COALESCE(gr.time_taken, ${MISSING_TIME_FALLBACK}))), ${MISSING_TIME_FALLBACK}) as average_time_taken,
            ROW_NUMBER() OVER (ORDER BY ${ALL_TIME_LEADERBOARD_ORDER_BY}) as rank
           FROM users u
           LEFT JOIN game_results gr ON u.id = gr.user_id
@@ -149,10 +164,17 @@ router.get('/all-time', async (req, res, next) => {
     // Find current user's rank if authenticated
     let currentUserRank = null;
     if (req.user) {
+      /// [2026-03-14 Bugfix] Use the same average_time_taken metric for rank lookup
+      ///
+      /// The ranked_users CTE now computes average_time_taken using
+      /// AVG(COALESCE(gr.time_taken, MISSING_TIME_FALLBACK)), matching the
+      /// ALL_TIME_LEADERBOARD_ORDER_BY tie-breaker and the main leaderboard query.
+      /// This keeps the current user's reported averageTimeTaken consistent with
+      /// their ordering in the all-time leaderboard.
       const userRankResult = await query(
         `WITH ranked_users AS (
            SELECT u.id, u.total_score,
-                  COALESCE(ROUND(AVG(gr.time_taken)), ${MISSING_TIME_FALLBACK}) as average_time_taken,
+                  COALESCE(ROUND(AVG(COALESCE(gr.time_taken, ${MISSING_TIME_FALLBACK}))), ${MISSING_TIME_FALLBACK}) as average_time_taken,
                   ROW_NUMBER() OVER (ORDER BY ${ALL_TIME_LEADERBOARD_ORDER_BY}) as rank
            FROM users u
            LEFT JOIN game_results gr ON u.id = gr.user_id
