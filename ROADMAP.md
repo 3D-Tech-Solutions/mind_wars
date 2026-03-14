@@ -29,8 +29,9 @@ This document provides a high-level visual roadmap for Mind Wars development, sh
 ### Current State Snapshot
 - ✅ **Frontend foundation complete**: Authentication, lobby flows, offline-first services, and responsive mobile UX are already implemented.
 - ✅ **Games shipped in the repository today**: 15 games across Memory, Logic, Attention, Spatial, and Language (`/lib/games/game_catalog.dart`).
+- ⏳ **Public v1.0 launch scope is narrower than the current repository catalog**: the March 2026 launch baseline is the dedicated nine-game requirements set in [`/docs/project/V1_0_RELEASE_REQUIREMENTS.md`](docs/project/V1_0_RELEASE_REQUIREMENTS.md).
 - ✅ **Device coverage already scoped for launch**: iOS 14+, Android 8+, and responsive layouts from phones to tablets.
-- ⏳ **Still required for public v1.0**: Production backend deployment, end-to-end beta testing, blocking defect burn-down, and store submission/approval.
+- ⏳ **Still required for public v1.0**: Server-authoritative puzzle/scoring enforcement, automated battle/result flows, persistent cross-device chat hardening, production backend deployment, end-to-end beta testing, blocking defect burn-down, and store submission/approval.
 
 ### Timeline Summary
 ```
@@ -75,7 +76,7 @@ Foundation     Social/Retention  Complete       Expansion
 | **3. Public store launch** | 2-4 weeks | Complete store assets/compliance, submit builds, clear approvals, and execute launch checklist |
 
 ### v1.0 Exit Criteria
-- ✅ The shipped catalog remains at **15 complete games** with no launch-blocking gameplay defects
+- ✅ The public launch scope matches the nine-game baseline in [`/docs/project/V1_0_RELEASE_REQUIREMENTS.md`](docs/project/V1_0_RELEASE_REQUIREMENTS.md)
 - ✅ Backend services are deployed, monitored, and stable for cross-platform multiplayer
 - ✅ Beta testing confirms phone and tablet readiness across supported iOS and Android devices
 - ✅ No **Critical** or **High** severity open defects remain at release sign-off

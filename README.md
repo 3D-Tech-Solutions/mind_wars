@@ -461,7 +461,8 @@ await offlineService.syncWithServer(
 ## Production Deployment
 
 ### Current Status
-Phase 1 frontend development is complete (✅), including the shipped 15-game catalog, offline-first client flows, and iOS 14+ / Android 8+ support. Backend services (RESTful API, full server-side move validation, and Socket.io multiplayer turn handling) are implemented in an early/stub form and still require production-ready hardening. Public v1.0 still requires backend deployment, end-to-end beta validation, and App Store / Play Store release work before launch.
+<!-- [2026-03-13 Documentation] Clarified that the shipped repository baseline differs from the public v1.0 launch requirements and linked the new requirements source of truth. -->
+Phase 1 frontend development is complete (✅), including the shipped 15-game catalog, offline-first client flows, and iOS 14+ / Android 8+ support. Backend services (RESTful API, full server-side move validation, and Socket.io multiplayer turn handling) are implemented in an early/stub form and still require production-ready hardening. The March 2026 public-release acceptance baseline now lives in [docs/project/V1_0_RELEASE_REQUIREMENTS.md](docs/project/V1_0_RELEASE_REQUIREMENTS.md); until those launch requirements are met, the repository should be treated as **pre-public-v1.0**. Public v1.0 still requires backend deployment, end-to-end beta validation, and App Store / Play Store release work before launch.
 
 ### Cloud Migration Plan
 See **[CLOUD_MIGRATION_PLAN.md](docs/project/CLOUD_MIGRATION_PLAN.md)** for comprehensive production deployment strategy:

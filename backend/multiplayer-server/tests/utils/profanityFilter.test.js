@@ -44,6 +44,15 @@ describe('ProfanityFilterService', () => {
       const result2 = service.filterMessage(undefined);
       expect(result2.hasProfanity).toBe(false);
     });
+
+    test('should flag leetspeak bypass attempts for moderation review', () => {
+      const result = service.filterMessage('you are f.u.c.k');
+      expect(result.hasProfanity).toBe(false);
+      expect(result.hasBypassAttempt).toBe(true);
+      expect(result.requiresReview).toBe(true);
+      expect(result.filtered).toBe('[message removed pending moderation]');
+      expect(result.flaggedReason).toBe('Profanity bypass attempt detected');
+    });
   });
 
   describe('isProfane method', () => {
