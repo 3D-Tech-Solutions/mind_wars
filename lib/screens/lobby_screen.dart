@@ -10,8 +10,10 @@ import '../services/multiplayer_service.dart';
 import 'chat_screen.dart';
 import 'game_selection_screen.dart';
 import '../services/voting_service.dart';
+import '../widgets/branded_avatar.dart';
 import 'game_voting_screen.dart';
 import 'lobby_settings_screen.dart';
+import '../utils/brand_animations.dart';
 
 class LobbyScreen extends StatefulWidget {
   final MultiplayerService multiplayerService;
@@ -365,8 +367,8 @@ class _LobbyScreenState extends State<LobbyScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _lobby == null) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(child: BrandAnimations.loadingSpinner(size: 64)),
       );
     }
 
@@ -504,12 +506,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     child: ListTile(
                       leading: Stack(
                         children: [
-                          CircleAvatar(
-                            child: Text(
-                              player.username[0].toUpperCase(),
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold),
-                            ),
+                          BrandedAvatar(
+                            avatar: player.avatar,
+                            fallbackLabel: player.username[0].toUpperCase(),
                           ),
                           Positioned(
                             right: 0,

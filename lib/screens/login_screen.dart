@@ -8,10 +8,13 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
 import '../main.dart';
+import '../utils/brand_assets.dart';
+import '../utils/brand_animations.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -178,6 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Login'),
+        backgroundColor: BrandAssets.deepNavy,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -195,19 +199,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     padding: const EdgeInsets.all(12),
                     margin: const EdgeInsets.only(bottom: 16),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: BrandAssets.cyan.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.blue[300]!),
+                      border: Border.all(color: BrandAssets.cyan.withOpacity(0.4)),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.info_outline, color: Colors.blue[700]),
+                        const Icon(Icons.info_outline, color: BrandAssets.cyan),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Alpha Mode: Using local authentication. Your data is stored on this device.',
-                            style: TextStyle(
-                              color: Colors.blue[700],
+                            style: const TextStyle(
+                              color: BrandAssets.text,
                               fontSize: 12,
                             ),
                           ),
@@ -216,16 +220,39 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 
-                // Header
-                const Icon(
-                  Icons.psychology,
-                  size: 80,
-                  color: Color(0xFF6200EE),
+                /// [2026-03-16 Integration] Replace the stock header icon with imported brand assets.
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [BrandAssets.deepNavy, BrandAssets.surface],
+                    ),
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Column(
+                    children: [
+                      SvgPicture.asset(
+                        BrandAssets.logomark,
+                        width: 88,
+                        height: 88,
+                      ),
+                      const SizedBox(height: 20),
+                      SvgPicture.asset(
+                        BrandAssets.wordmarkHorizontal,
+                        width: 220,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Welcome Back',
-                  style: theme.textTheme.displaySmall,
+                  style: theme.textTheme.displaySmall?.copyWith(
+                    color: BrandAssets.deepNavy,
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
@@ -341,19 +368,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6200EE),
+                    backgroundColor: BrandAssets.coral,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                      ? BrandAnimations.loadingSpinner(size: 20)
                       : const Text('Login'),
                 ),
                 
@@ -387,6 +407,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         },
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: const BorderSide(color: BrandAssets.deepNavy),
                   ),
                   child: const Text('Create New Account'),
                 ),

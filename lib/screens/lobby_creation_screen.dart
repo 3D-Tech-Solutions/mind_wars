@@ -5,6 +5,7 @@
 
 import 'package:flutter/material.dart';
 import '../services/multiplayer_service.dart';
+import '../utils/brand_animations.dart';
 
 class LobbyCreationScreen extends StatefulWidget {
   final MultiplayerService multiplayerService;
@@ -341,11 +342,7 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
                   ),
                 ),
                 child: _isCreating
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
+                    ? BrandAnimations.loadingSpinner(size: 20)
                     : const Text(
                         'Create Lobby',
                         style: TextStyle(fontSize: 16),

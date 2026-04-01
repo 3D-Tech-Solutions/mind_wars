@@ -14,6 +14,7 @@ import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
 import '../main.dart';
+import '../utils/brand_animations.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -373,14 +374,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                      ? BrandAnimations.loadingSpinner(size: 20)
                       : const Text('Create Account'),
                 ),
                 

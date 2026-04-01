@@ -10,7 +10,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
-import '../services/api_service.dart';
+import '../utils/brand_assets.dart';
+import '../utils/brand_animations.dart';
+import '../widgets/branded_avatar.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -26,19 +28,48 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   String? _selectedAvatar;
   bool _isLoading = false;
   String? _errorMessage;
+  bool _didInitializeProfile = false;
   
-  // Preset avatar options
-  final List<String> _avatarOptions = [
-    '🧠', '🎮', '🏆', '⚡', '🎯', '🌟',
-    '🚀', '💡', '🎪', '🎨', '🎭', '🎸',
-    '⚽', '🏀', '🎾', '🏐', '🎳', '🎲',
-  ];
+  /// [2026-03-26 Feature] Expose the full imported avatar set during profile setup.
+  ///
+  /// The branding drop includes 60 default avatars, and alpha testers should be
+  /// able to choose from the complete set instead of an arbitrary subset.
+  final List<String> _avatarOptions = List<String>.generate(
+    60,
+    (index) => BrandAssets.defaultAvatar(index + 1),
+  );
   
   @override
   void initState() {
     super.initState();
-    // Set default avatar
     _selectedAvatar = _avatarOptions[0];
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    if (_didInitializeProfile) {
+      return;
+    }
+
+    /// [2026-03-26 Feature] Seed profile setup from the authenticated account.
+    ///
+    /// This preserves the original username casing from registration, prefills
+    /// the display name, and keeps any previously selected avatar visible.
+    final currentUser = Provider.of<AuthService>(context, listen: false).currentUser;
+    if (currentUser != null) {
+      _displayNameController.text =
+          (currentUser.displayName?.trim().isNotEmpty ?? false)
+              ? currentUser.displayName!.trim()
+              : currentUser.username;
+
+      if (currentUser.avatar != null && currentUser.avatar!.isNotEmpty) {
+        _selectedAvatar = currentUser.avatar;
+      }
+    }
+
+    _didInitializeProfile = true;
   }
   
   @override
@@ -71,16 +102,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      final apiService = Provider.of<ApiService>(context, listen: false);
       
-      final userId = authService.currentUser?.id;
-      if (userId == null) {
-        throw Exception('User not authenticated');
-      }
-      
-      // Update profile via API
-      await apiService.updateProfile(
-        userId: userId,
+      /// [2026-03-26 Feature] Persist profile data through the auth layer.
+      ///
+      /// This keeps alpha mode local-first while preserving the backend update
+      /// path for non-alpha builds.
+      await authService.updateProfile(
         displayName: _displayNameController.text.trim(),
         avatar: _selectedAvatar!,
       );
@@ -106,6 +133,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.currentUser;
     
     return Scaffold(
       appBar: AppBar(
@@ -169,7 +197,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.person, color: Color(0xFF6200EE)),
+                      const Icon(Icons.person, color: BrandAssets.coral),
                       const SizedBox(width: 12),
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,7 +209,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             ),
                           ),
                           Text(
-                            authService.currentUser?.username ?? '',
+                            currentUser?.username ?? '',
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -233,9 +261,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 6,
+                    crossAxisCount: 4,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
+                    childAspectRatio: 1,
                   ),
                   itemCount: _avatarOptions.length,
                   itemBuilder: (context, index) {
@@ -253,20 +282,21 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       child: Container(
                         decoration: BoxDecoration(
                           color: isSelected
-                              ? const Color(0xFF6200EE).withOpacity(0.1)
+                              ? BrandAssets.cyan.withOpacity(0.1)
                               : Colors.grey[100],
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isSelected
-                                ? const Color(0xFF6200EE)
+                                ? BrandAssets.cyan
                                 : Colors.grey[300]!,
                             width: isSelected ? 3 : 1,
                           ),
                         ),
                         child: Center(
-                          child: Text(
-                            avatar,
-                            style: const TextStyle(fontSize: 32),
+                          child: BrandedAvatar(
+                            avatar: avatar,
+                            fallbackLabel: '${index + 1}',
+                            radius: 24,
                           ),
                         ),
                       ),
@@ -280,19 +310,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleComplete,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF6200EE),
+                    backgroundColor: BrandAssets.coral,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
+                      ? BrandAnimations.loadingSpinner(size: 20)
                       : const Text('Complete Setup'),
                 ),
                 

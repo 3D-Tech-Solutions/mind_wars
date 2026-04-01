@@ -12,6 +12,7 @@ import '../games/game_catalog.dart';
 import '../services/voting_service.dart';
 import '../services/multiplayer_service.dart';
 import '../widgets/vote_to_skip_widgets.dart';
+import '../utils/brand_animations.dart';
 
 class GameVotingScreen extends StatefulWidget {
   final String lobbyId;
@@ -905,14 +906,7 @@ class _GameVotingScreenState extends State<GameVotingScreen>
                   ),
                 ),
                 child: _isSubmitting
-                    ? const SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
+                    ? BrandAnimations.loadingSpinner(size: 24)
                     : Text(
                         widget.votingService.allPlayersVoted
                             ? 'Waiting for Others...'

@@ -6,6 +6,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/multiplayer_service.dart';
+import '../utils/brand_animations.dart';
 
 class LobbyBrowserScreen extends StatefulWidget {
   final MultiplayerService multiplayerService;
@@ -197,12 +198,7 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
                           ),
                         ),
                         child: _isJoining
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
+                            ? BrandAnimations.loadingSpinner(size: 20)
                             : const Text('Join Lobby'),
                       ),
                     ),
@@ -263,10 +259,10 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
 
             // Loading or Empty State
             if (_isLoading)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(32.0),
-                  child: CircularProgressIndicator(),
+                  padding: const EdgeInsets.all(32.0),
+                  child: BrandAnimations.loadingSpinner(size: 64),
                 ),
               )
             else if (_publicLobbies.isEmpty)

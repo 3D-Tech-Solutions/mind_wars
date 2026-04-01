@@ -6,10 +6,13 @@
  */
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../main.dart';
 import 'onboarding_screen.dart';
+import '../utils/brand_assets.dart';
+import '../utils/brand_animations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -57,97 +60,55 @@ class _SplashScreenState extends State<SplashScreen> {
   
   @override
   Widget build(BuildContext context) {
+    /// [2026-03-16 Integration] Use imported splash art and brand mark instead of placeholder gradients.
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF6200EE),
-              Color(0xFF9D46FF),
-            ],
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.asset(
+            MediaQuery.of(context).size.height > 900
+                ? BrandAssets.splashIos
+                : BrandAssets.splashAndroid,
+            fit: BoxFit.cover,
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // App icon
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 20,
-                      offset: const Offset(0, 10),
+          Container(
+            color: Colors.black.withOpacity(0.24),
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                const Spacer(),
+                SvgPicture.asset(
+                  BrandAssets.wordmarkHorizontal,
+                  width: 220,
+                ),
+                const SizedBox(height: 28),
+                BrandAnimations.loadingSpinner(size: 64),
+                const SizedBox(height: 24),
+                if (kAlphaMode)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: BrandAssets.deepNavy.withOpacity(0.76),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: BrandAssets.cyan.withOpacity(0.5)),
                     ),
-                  ],
-                ),
-                child: const Icon(
-                  Icons.psychology,
-                  size: 80,
-                  color: Color(0xFF6200EE),
-                ),
-              ),
-              
-              const SizedBox(height: 32),
-              
-              // App name
-              const Text(
-                'Mind Wars',
-                style: TextStyle(
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-              
-              const SizedBox(height: 8),
-              
-              // Tagline
-              Text(
-                'Challenge Your Mind',
-                style: TextStyle(
-                  fontSize: 18,
-                  color: Colors.white.withOpacity(0.9),
-                ),
-              ),
-              
-              const SizedBox(height: 48),
-              
-              // Loading indicator
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-              
-              const SizedBox(height: 24),
-              
-              // Alpha mode badge
-              if (kAlphaMode)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.white.withOpacity(0.5)),
-                  ),
-                  child: const Text(
-                    'ALPHA VERSION',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.5,
+                    child: const Text(
+                      'ALPHA VERSION',
+                      style: TextStyle(
+                        color: BrandAssets.text,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                      ),
                     ),
                   ),
-                ),
-            ],
+                const SizedBox(height: 72),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

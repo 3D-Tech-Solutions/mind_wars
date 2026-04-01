@@ -27,6 +27,18 @@ dependencies:
   sqflite: ^2.3.0
   path_provider: ^2.1.0
   
+  # [2026-03-31 Integration] Lottie JSON renderer for the 4 branded motion assets:
+  #   assets/branding/animations/anim_splash-assembly_1080x2340.json  (splash intro)
+  #   assets/branding/animations/anim_loading-spinner_256.json        (loading spinner, loop)
+  #   assets/branding/animations/anim_battle-countdown_1080.json      (battle countdown)
+  #   assets/branding/system/anim_achievement-unlock_400.json         (achievement unlock)
+  # Use BrandAnimations helper in lib/utils/brand_animations.dart.
+  lottie: ^3.1.0
+  
+  # [2026-03-31 Integration] Video playback for original MP4 placeholders in
+  # assets/branding/animations/ — kept for fallback until Lottie is wired everywhere.
+  video_player: ^2.8.3
+  
   # Utilities
   uuid: ^3.0.7
   intl: ^0.18.1
@@ -45,8 +57,30 @@ flutter:
   uses-material-design: true
   
   # Assets
+  # [2026-03-22 Maintenance] Expanded asset registration to cover all branding
+  # subdirectories. Flutter requires each subdirectory to be listed separately —
+  # a top-level entry like assets/branding/ only includes files at that exact level,
+  # not recursively. Added assets/branding/animations/ for motion assets and
+  # assets/branding/system/ for system-level assets like achievement-unlock.
   assets:
     - assets/words_small.json
+    - assets/branding/
+    - assets/branding/avatars/
+    - assets/branding/badges/
+    - assets/branding/icons/
+    - assets/branding/logos/
+    - assets/branding/onboarding/
+    - assets/branding/system/
+    - assets/branding/animations/
+    - assets/games/
+    - assets/games/attention/
+    - assets/games/attention/focus-finder/
+    - assets/games/language/
+    - assets/games/logic/
+    - assets/games/memory/
+    - assets/games/memory/memory-match/
+    - assets/games/spatial/
+    - assets/fonts/
   
   # Fonts
   # fonts:
