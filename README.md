@@ -234,6 +234,44 @@ flutter build apk          # Android
 flutter build ios          # iOS
 ```
 
+### Local Development with Backend Services
+
+For local testing with a full backend stack, start the Docker services:
+
+```bash
+# Navigate to backend directory
+cd backend
+
+# Start all services (PostgreSQL, Redis, API, Multiplayer, Nginx)
+docker compose up -d
+
+# Verify services are running
+docker compose ps
+
+# Check API health
+curl http://localhost:3002/health
+```
+
+**Service Ports (Host):**
+- PostgreSQL: `5433` (internal: 5432)
+- Redis: `6380` (internal: 6379)
+- API Server: `3002` (internal: 3000)
+- Multiplayer (Socket.io): `3003` (internal: 3001)
+- Nginx Gateway: `4001` (routes to API + Socket.io)
+
+**Running on Physical Device:**
+
+Update your device's IP address and run:
+
+```bash
+# Replace 172.16.0.4 with your machine's local network IP
+flutter run --dart-define=FLAVOR=local --dart-define=LOCAL_HOST=172.16.0.4
+```
+
+The app will automatically connect to:
+- REST API: `http://172.16.0.4:3002`
+- WebSocket: `http://172.16.0.4:3003`
+
 ## Alpha Builds
 
 Alpha builds allow you to test the app on your personal device before release.
