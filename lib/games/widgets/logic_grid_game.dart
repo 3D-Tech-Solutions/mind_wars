@@ -43,44 +43,56 @@ class _LogicGridGameState extends BaseGameState<LogicGridGame> {
   void _generatePuzzle() {
     final random = Random();
     final shuffledColors = List.from(_colors)..shuffle(random);
-    
+
     _solution = {};
     for (var i = 0; i < _people.length; i++) {
       _solution[_people[i]] = shuffledColors[i];
     }
-    
+
     _userAnswers = {for (var person in _people) person: null};
-    
-    // Generate clues
-    _clues = ['Match each person with their color'];
 
-    // Build a pool of possible clues
-    List<String> possibleClues = [];
-    // Positive clues: "X has Y"
-    for (var person in _people) {
-      possibleClues.add('$person has ${_solution[person]}');
-    }
-    // Negative clues: "X does not have Y" (for all incorrect color assignments)
-    for (var person in _people) {
-      for (var color in _colors) {
-        if (_solution[person] != color) {
-          possibleClues.add('$person does not have $color');
-        }
-      }
-    }
-    // Negative clues: "Y is not X's color"
-    for (var color in _colors) {
+    // Generate clues based on level difficulty
+    _clues = ['Match each person with their color:'];
+
+    // Level 1: 3 positive clues (direct answers)
+    // Level 2: Mix of positive and negative clues
+    // Level 3+: Mostly negative clues (harder deduction)
+
+    if (_level == 1) {
+      // Level 1: Give all positive clues directly
       for (var person in _people) {
-        if (_solution[person] != color) {
-          possibleClues.add('$color is not $person\'s color');
+        _clues.add('✓ $person has ${_solution[person]}');
+      }
+    } else if (_level == 2) {
+      // Level 2: Mix - give 2 positive clues and add negative clues
+      final positivePeople = _people.take(2).toList();
+      for (var person in positivePeople) {
+        _clues.add('✓ $person has ${_solution[person]}');
+      }
+      // Add negative clues to narrow down the remaining person
+      final remainingPerson = _people.last;
+      for (var color in _colors) {
+        if (_solution[remainingPerson] != color) {
+          _clues.add('✗ $remainingPerson does NOT have $color');
         }
       }
+    } else {
+      // Level 3+: Use strategic negative clues that uniquely determine the solution
+      // Strategy: For each person, provide at least one negative clue
+      for (var person in _people) {
+        var cluesForPerson = 0;
+        for (var color in _colors) {
+          if (_solution[person] != color && cluesForPerson < 2) {
+            _clues.add('✗ $person does NOT have $color');
+            cluesForPerson++;
+          }
+        }
+      }
+      // Add one positive clue to ensure solvability
+      final firstPerson = _people.first;
+      _clues.add('✓ $firstPerson has ${_solution[firstPerson]}');
     }
 
-    // Shuffle and pick 2 random clues (in addition to the instruction)
-    possibleClues.shuffle(random);
-    _clues.addAll(possibleClues.take(2));
-    
     setState(() {});
   }
 
