@@ -31,7 +31,7 @@ if (flutterVersionName == null) {
 
 android {
     namespace "com.mindwars.app"
-    compileSdk 34
+    compileSdk 35
     ndkVersion "26.3.11579264"  // Use existing NDK instead of flutter.ndkVersion
 
     compileOptions {

@@ -21,12 +21,23 @@ import 'screens/profile_setup_screen.dart';
 import 'screens/offline_game_play_screen.dart';
 import 'games/game_catalog.dart';
 import 'models/models.dart';
+import 'widgets/branded_avatar.dart';
+import 'utils/build_config.dart';
+import 'utils/theme/brand_theme.dart';
 
 /// [2025-11-16 Feature] Alpha mode flag for authentication method
 /// When true: Uses local authentication (offline testing only)
 /// When false: Authenticates through backend API at war.e-mothership.com:3000
-/// Status: Disabled to enable backend API connectivity through unified gateway
-const bool kAlphaMode = false;
+/// [2026-03-26 Bugfix] Tie alpha authentication mode to the build flavor.
+///
+/// This ensures Android alpha builds use local authentication automatically,
+/// which keeps registration and login testable even when the hosted backend is
+/// unavailable. Production builds continue using backend authentication.
+const bool kAlphaMode = String.fromEnvironment(
+      'FLAVOR',
+      defaultValue: 'production',
+    ) ==
+    'alpha';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -55,11 +66,13 @@ class _MindWarsAppState extends State<MindWarsApp> {
   }
 
   Future<void> _initializeServices() async {
-    // [2025-11-18 Feature] Updated to use public domain endpoint
-    // Uses war.e-mothership.com:4000 for direct backend access
-    // No longer requires ADB reverse port forward for testing
+    /// [2026-03-26 Bugfix] Use build-based API configuration instead of a hardcoded endpoint.
+    ///
+    /// This keeps alpha and production environment wiring aligned with the
+    /// declared build configuration and avoids forcing alpha installs onto a
+    /// backend that may not be reachable during device testing.
     _apiService = ApiService(
-      baseUrl: 'http://war.e-mothership.com:4000/api',
+      baseUrl: '${BuildConfig.apiBaseUrl}/api',
     );
     
     _offlineService = OfflineService();
@@ -93,16 +106,7 @@ class _MindWarsAppState extends State<MindWarsApp> {
           return MaterialApp(
             home: Scaffold(
               body: Container(
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Color(0xFF6200EE),
-                      Color(0xFF9D46FF),
-                    ],
-                  ),
-                ),
+                decoration: MindWarsBrandTheme.loadingBackgroundDecoration,
                 child: const Center(
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
@@ -124,68 +128,8 @@ class _MindWarsAppState extends State<MindWarsApp> {
           child: MaterialApp(
             title: kAlphaMode ? 'Mind Wars Alpha' : 'Mind Wars',
             debugShowCheckedModeBanner: false,
-            theme: ThemeData(
-              // Mobile-First: Material Design 3 with touch-friendly sizing
-              useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF6200EE),
-                brightness: Brightness.light,
-              ),
-              
-              // Touch-friendly sizes for 5" screens
-              elevatedButtonTheme: ElevatedButtonThemeData(
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(120, 48), // Touch-friendly
-                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                ),
-              ),
-              
-              cardTheme: CardThemeData(
-                elevation: 2,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              ),
-              
-              appBarTheme: const AppBarTheme(
-                centerTitle: true,
-                elevation: 0,
-              ),
-              
-              // Typography optimized for mobile
-              textTheme: const TextTheme(
-                displayLarge: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                ),
-                displayMedium: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                ),
-                displaySmall: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-                headlineMedium: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
-                ),
-                bodyLarge: TextStyle(fontSize: 16),
-                bodyMedium: TextStyle(fontSize: 14),
-              ),
-            ),
-            
-            darkTheme: ThemeData(
-              useMaterial3: true,
-              colorScheme: ColorScheme.fromSeed(
-                seedColor: const Color(0xFF6200EE),
-                brightness: Brightness.dark,
-              ),
-            ),
+            theme: MindWarsBrandTheme.lightTheme(),
+            darkTheme: MindWarsBrandTheme.darkTheme(),
             
             themeMode: ThemeMode.system,
             
@@ -498,7 +442,6 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                   child: Text(
                     'Alpha Mode: Showing sample data. Real leaderboards will be available in production.',
                     style: TextStyle(
-                      fontSize: 12,
                       color: Colors.orange[900],
                     ),
                   ),
@@ -506,7 +449,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
               ],
             ),
           ),
-        
+
         // Podium for top 3
         Padding(
           padding: const EdgeInsets.all(16.0),
@@ -678,17 +621,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           padding: const EdgeInsets.all(24.0),
                           child: Column(
                             children: [
-                              CircleAvatar(
+                              BrandedAvatar(
+                                avatar: user.avatar,
+                                fallbackLabel: user.username[0].toUpperCase(),
                                 radius: 50,
                                 backgroundColor: Theme.of(context).colorScheme.primary,
-                                child: Text(
-                                  user.username[0].toUpperCase(),
-                                  style: const TextStyle(
-                                    fontSize: 40,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
                               ),
                               const SizedBox(height: 16),
                               Text(
