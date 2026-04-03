@@ -13,6 +13,8 @@ import 'services/local_auth_service.dart';
 import 'services/multiplayer_service.dart';
 import 'services/offline_service.dart';
 import 'services/progression_service.dart';
+import 'services/connectivity_service.dart';
+import 'services/app_logger.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/registration_screen.dart';
@@ -22,6 +24,7 @@ import 'screens/offline_game_play_screen.dart';
 import 'games/game_catalog.dart';
 import 'models/models.dart';
 import 'widgets/branded_avatar.dart';
+import 'widgets/debug_panel.dart';
 import 'utils/build_config.dart';
 import 'utils/theme/brand_theme.dart';
 
@@ -41,6 +44,17 @@ const bool kAlphaMode = String.fromEnvironment(
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize logger for alpha builds
+  AppLogger.init(alphaMode: kAlphaMode);
+
+  if (kAlphaMode) {
+    AppLogger.info('Mind Wars Alpha Started', source: 'main');
+    AppLogger.info('Build Config: ${BuildConfig.buildType}', source: 'main');
+    AppLogger.info('API URL: ${BuildConfig.apiBaseUrl}', source: 'main');
+    AppLogger.info('WS URL: ${BuildConfig.wsBaseUrl}', source: 'main');
+  }
+
   runApp(const MindWarsApp());
 }
 
@@ -165,6 +179,15 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Mind Wars'),
         actions: [
+          // Debug panel button - only in alpha builds
+          if (kAlphaMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Debug Panel',
+              onPressed: () {
+                showDebugPanel(context);
+              },
+            ),
           IconButton(
             icon: const Icon(Icons.person),
             onPressed: () {
@@ -239,11 +262,11 @@ class HomeScreen extends StatelessWidget {
               const Spacer(),
               
               // Feature Highlights
-              _buildFeatureChip(context, '2-10 Players'),
+              _buildFeatureChip(context, 'Compete 1v1 or in Mind Wars'),
               const SizedBox(height: 8),
               _buildFeatureChip(context, '12+ Games, 5 Categories'),
               const SizedBox(height: 8),
-              _buildFeatureChip(context, 'Weekly Challenges'),
+              _buildFeatureChip(context, 'Individual Gameplay, Competitive Scores'),
               
               const SizedBox(height: 20),
             ],
@@ -276,8 +299,35 @@ class HomeScreen extends StatelessWidget {
 }
 
 /// Placeholder screens (to be implemented)
-class LobbyListScreen extends StatelessWidget {
+class LobbyListScreen extends StatefulWidget {
   const LobbyListScreen({super.key});
+
+  @override
+  State<LobbyListScreen> createState() => _LobbyListScreenState();
+}
+
+class _LobbyListScreenState extends State<LobbyListScreen> {
+  bool _showDebugPanel = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Show debug panel on enter in alpha mode
+    if (kAlphaMode) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showDebugPanelModal();
+      });
+    }
+  }
+
+  void _showDebugPanelModal() {
+    showDebugPanel(
+      context,
+      onContinue: () {
+        Navigator.pop(context);
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -287,49 +337,72 @@ class LobbyListScreen extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Info Banner
+            // Info Banner with debug button in alpha
             if (kAlphaMode)
               Card(
                 color: Colors.orange[100],
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
-                  child: Row(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Icon(Icons.info, color: Colors.orange),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Multiplayer features require server connectivity.\n\n'
-                          'In alpha mode, try "Play Offline" to practice games solo.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.orange[900],
+                      Row(
+                        children: [
+                          const Icon(Icons.info, color: Colors.orange),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Alpha Testing: Backend connectivity required',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.orange[900],
+                              ),
+                            ),
                           ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Use the debug panel below to test server connectivity. '
+                        'If servers are unreachable, try "Play Offline" instead.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.orange[900],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _showDebugPanelModal,
+                          icon: const Icon(Icons.bug_report),
+                          label: const Text('Show Debug Panel'),
                         ),
                       ),
                     ],
                   ),
                 ),
               ),
-            
+
             const SizedBox(height: 24),
-            
+
             // Illustration
             Icon(
               Icons.people,
               size: 100,
               color: Colors.grey[300],
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             Text(
               'Multiplayer Coming Soon',
               style: Theme.of(context).textTheme.headlineMedium,
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             Text(
               'Create lobbies, invite friends, and compete in real-time when the servers are ready!',
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -337,9 +410,9 @@ class LobbyListScreen extends StatelessWidget {
                   ),
               textAlign: TextAlign.center,
             ),
-            
+
             const SizedBox(height: 32),
-            
+
             FilledButton.icon(
               onPressed: () {
                 Navigator.pushNamed(context, '/offline');
@@ -350,9 +423,9 @@ class LobbyListScreen extends StatelessWidget {
                 minimumSize: const Size(double.infinity, 48),
               ),
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             OutlinedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
@@ -1239,17 +1312,6 @@ class _OfflineScreenState extends State<OfflineScreen> {
                   Text(
                     game.rules,
                     style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      const Icon(Icons.people, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${game.minPlayers}-${game.maxPlayers} Players',
-                        style: Theme.of(context).textTheme.bodyMedium,
-                      ),
-                    ],
                   ),
                   const SizedBox(height: 32),
                   FilledButton.icon(

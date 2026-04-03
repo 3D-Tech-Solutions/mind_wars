@@ -13,9 +13,11 @@
 2. [Device Pairing & Connection](#device-pairing--connection)
 3. [Backend Services Launch](#backend-services-launch)
 4. [Flutter App Build & Deploy](#flutter-app-build--deploy)
-5. [Verification Checklist](#verification-checklist)
-6. [Troubleshooting](#troubleshooting)
-7. [Beta Readiness Assessment](#beta-readiness-assessment)
+5. [Multi-Device Testing](#multi-device-testing---backend-communication)
+6. [Verification Checklist](#verification-checklist)
+7. [Debug Panel Usage](#debug-panel-usage)
+8. [Troubleshooting](#troubleshooting)
+9. [Beta Readiness Assessment](#beta-readiness-assessment)
 
 ---
 
@@ -374,6 +376,343 @@ flutter run
 
 ---
 
+## Multi-Device Testing - Backend Communication
+
+**Purpose:** Verify that two devices can connect to the same backend and communicate through the multiplayer server.
+
+**Estimated Time:** 20-30 minutes  
+**Required:** 2 Android devices, same Wi-Fi network as development machine
+
+---
+
+### Prerequisites for Multi-Device Testing
+
+#### Check Backend is Running
+
+```bash
+# From development machine, verify all services
+docker-compose ps
+
+# Expected output - all should show "Up" or "healthy":
+# NAME                            STATUS
+# eskienterprises-postgres        Up (healthy)
+# eskienterprises-redis           Up (healthy)
+# eskienterprises-mindwars-api    Up (healthy)
+# eskienterprises-mindwars-multiplayer  Up (healthy)
+
+# If any are not healthy:
+docker-compose logs <service-name>
+# Review logs and fix issues before proceeding
+```
+
+#### Identify Your Machine's IP Address
+
+```bash
+# Get your local network IP (not localhost)
+hostname -I | awk '{print $2}'
+
+# Example output: 172.16.0.4
+# This is what you'll use for LOCAL_HOST in the flutter run command
+```
+
+#### Verify Network Connectivity from Devices
+
+```bash
+# On each device:
+# 1. Open terminal/shell app
+# 2. Or use adb shell from development machine
+
+adb shell ping 172.16.0.4
+# Expected: "bytes from 172.16.0.4: icmp_seq=1 ttl=XX time=XX ms"
+# This confirms device can reach your development machine
+```
+
+---
+
+### Step 1: Deploy App to First Device
+
+```bash
+# Connect first device via ADB
+adb devices
+# Should show: <DEVICE_1_ID>     device
+
+# Deploy app with local backend configuration
+# Replace 172.16.0.4 with YOUR machine's IP from above
+flutter run \
+  --dart-define=FLAVOR=local \
+  --dart-define=LOCAL_HOST=172.16.0.4 \
+  -d <DEVICE_1_ID>
+
+# Expected: "Launching lib/main.dart..." → App installs and launches on Device 1
+```
+
+**Verify Device 1 is Running:**
+```bash
+# On device 1:
+# 1. App should launch automatically
+# 2. You should see the home screen
+# 3. Tap the 🐛 debug icon (top right)
+# 4. Check "Status" tab
+#    - API Server should show ✓ (green)
+#    - WebSocket Server should show ✓ (green)
+```
+
+### Step 2: Deploy App to Second Device
+
+```bash
+# Connect second device via ADB
+adb devices
+# Should show:
+# <DEVICE_1_ID>     device
+# <DEVICE_2_ID>     device
+
+# Deploy app to second device (same configuration)
+flutter run \
+  --dart-define=FLAVOR=local \
+  --dart-define=LOCAL_HOST=172.16.0.4 \
+  -d <DEVICE_2_ID>
+
+# Expected: App installs and launches on Device 2
+```
+
+**Verify Device 2 is Running:**
+```bash
+# Repeat the same checks as Device 1:
+# 1. App launches on Device 2
+# 2. Tap 🐛 debug icon
+# 3. Verify API and WebSocket show ✓
+```
+
+---
+
+### Step 3: Test Backend Communication
+
+#### Test 3.1: User Registration on Device 1
+
+```
+ON DEVICE 1:
+1. Tap "Create Account"
+2. Fill in:
+   - Username: tester_device_1
+   - Email: device1@mindwars.local
+   - Password: TestPassword123
+3. Tap "Register"
+4. Wait for home screen
+```
+
+**Verify in Backend:**
+
+```bash
+# From development machine, check database
+docker-compose exec postgres psql -U mindwars -d mindwars \
+  -c "SELECT id, email, display_name FROM users;"
+
+# Expected output:
+#  id |       email        |  display_name
+# ----+--------------------+------------------
+#   1 | device1@mindwars.local | tester_device_1
+
+# Take note of the user ID (should be 1)
+```
+
+#### Test 3.2: User Registration on Device 2
+
+```
+ON DEVICE 2:
+1. Tap "Create Account"
+2. Fill in:
+   - Username: tester_device_2
+   - Email: device2@mindwars.local
+   - Password: TestPassword456
+3. Tap "Register"
+4. Wait for home screen
+```
+
+**Verify Both Users Exist:**
+
+```bash
+# Check database again
+docker-compose exec postgres psql -U mindwars -d mindwars \
+  -c "SELECT id, email, display_name FROM users ORDER BY id;"
+
+# Expected output:
+#  id |       email        |  display_name
+# ----+--------------------+------------------
+#   1 | device1@mindwars.local | tester_device_1
+#   2 | device2@mindwars.local | tester_device_2
+```
+
+#### Test 3.3: Multiplayer Connection Test
+
+**On Device 1:**
+```
+1. Tap "Multiplayer"
+2. Debug panel appears
+3. Check Status tab:
+   - API Server: ✓ (green)
+   - WebSocket Server: ✓ (green)
+4. Click "Continue" or close panel
+5. Tap "Show Debug Panel" button (in info banner)
+6. Click Logs tab
+7. Look for: "Multiplayer server ready" or connection success message
+```
+
+**On Device 2:**
+```
+1. Same steps as Device 1
+2. Both devices should show green ✓ for connectivity
+```
+
+---
+
+### Step 4: Verify Backend Logs
+
+**Check Multiplayer Server Logs:**
+
+```bash
+# See real-time multiplayer server activity
+docker-compose logs -f multiplayer-server
+
+# Expected to see connection events:
+# info: Multiplayer server ready
+# debug: Client connected: <socket-id>
+# debug: Player joined: tester_device_1
+```
+
+**Check API Server Logs:**
+
+```bash
+# See API call activity
+docker-compose logs -f api-server
+
+# Expected to see auth and user endpoints being called:
+# info: POST /auth/register
+# info: User created: tester_device_1
+```
+
+---
+
+### Step 5: Review Debug Logs on Devices
+
+**On Each Device:**
+
+```
+1. Tap 🐛 debug icon (app bar)
+2. Click "Logs" tab
+3. Filter by "Error" (red button)
+   - Should show NO red error entries
+   - If any errors appear, note them for troubleshooting
+
+4. Filter by "Info" (cyan button)
+   - Should show successful API calls
+   - Should show WebSocket connection events
+   - Should show user registration confirmations
+```
+
+---
+
+### Step 6: Test Persistence Across Restart
+
+**On Device 1:**
+```
+1. Force close app (long-press home → swipe up)
+2. Reopen app from app drawer
+3. Should see Login screen (not Home)
+4. Login with credentials:
+   - Email: device1@mindwars.local
+   - Password: TestPassword123
+5. Should return to home screen
+```
+
+**Check Database:**
+
+```bash
+# Verify login was recorded
+docker-compose exec postgres psql -U mindwars -d mindwars \
+  -c "SELECT email, last_login_at FROM users WHERE email = 'device1@mindwars.local';"
+
+# Expected: Shows recent timestamp in last_login_at
+```
+
+---
+
+### Multi-Device Testing Checklist
+
+- [ ] Device 1: App launches without errors
+- [ ] Device 2: App launches without errors
+- [ ] Device 1: Debug panel shows ✓ API and WebSocket
+- [ ] Device 2: Debug panel shows ✓ API and WebSocket
+- [ ] Device 1: User registration succeeds
+- [ ] Device 2: User registration succeeds
+- [ ] Database: Both users created (user IDs 1 and 2)
+- [ ] Multiplayer: Device 1 connects to WebSocket
+- [ ] Multiplayer: Device 2 connects to WebSocket
+- [ ] Logs: No red error entries on either device
+- [ ] Restart: Device 1 login persists user data
+- [ ] Restart: Device 2 login persists user data
+
+**If ALL checkmarks pass:** ✅ Backend communication working!
+
+---
+
+## Debug Panel Usage
+
+### Accessing Debug Panel
+
+**From Home Screen:**
+```
+1. Look for 🐛 icon in top-right of app bar
+2. Only visible in alpha builds
+3. Tap to open full debug panel
+```
+
+**Automatic on Multiplayer:**
+```
+1. Tap "Multiplayer" from home
+2. Debug panel appears automatically
+3. Shows connectivity test results
+4. Tap "Continue" to dismiss
+```
+
+### Status Tab - Quick Health Check
+
+```
+Shows:
+- API Server status (✓ = healthy, ✗ = unreachable)
+- WebSocket Server status
+- Network availability
+- Server URLs being connected to
+- Build configuration (flavor, type, API URL, WS URL)
+
+Green ✓ = All systems operational
+Red ✗ = Shows specific error message for diagnosis
+```
+
+### Logs Tab - Real-Time Activity
+
+```
+Displays:
+- All app events as they happen
+- Filterable by level:
+  - Debug: Detailed internal events
+  - Info: Key milestones (login, API calls)
+  - Warning: Potential issues
+  - Error: Failed operations (shows red)
+
+Features:
+- Timestamps (HH:MM:SS.mmm format)
+- Source information (which component logged it)
+- Exception details with stack traces
+- Clear button to reset log list
+
+Tips:
+- Use Error filter to spot problems immediately
+- Use Info filter to trace user actions
+- Share logs with dev team for debugging
+```
+
+---
+
 ## Verification Checklist
 
 ### ✅ Phase 1: App Launch Verification (5 minutes)
@@ -658,6 +997,49 @@ adb devices
 # 1. Verify pairing code (if wireless): adb pair <IP>:5555 <CODE>
 # 2. Or use USB cable: adb connect <IP>:5555 after tcpip 5555
 # 3. Check firewall isn't blocking port 5555
+```
+
+### Issue: "Multiplayer connection fails or times out"
+
+**Solution - Using the Debug Panel:**
+
+The alpha build includes a **Debug Panel** to diagnose connectivity issues:
+
+```
+ON YOUR DEVICE:
+1. Tap "Multiplayer" button from home screen
+2. Debug panel appears automatically showing:
+   - API Server status (✓ or ✗)
+   - WebSocket Server status (✓ or ✗)
+   - Network availability
+   - Server URLs being used
+   - Real-time log stream
+   
+3. Check the Status tab:
+   - Green ✓ = Server is reachable
+   - Red ✗ = Server unreachable (shows error)
+   
+4. Check the Logs tab:
+   - See all connection attempts in real-time
+   - Filter by log level (Debug/Info/Warning/Error)
+   - Look for specific error messages
+```
+
+**Common Issues & Fixes:**
+
+```
+Issue: "API Server" shows ✗
+→ Backend API not running
+→ Fix: docker-compose up -d api-server
+
+Issue: "WebSocket Server" shows ✗
+→ Multiplayer server not running
+→ Fix: docker-compose up -d multiplayer-server
+
+Issue: Both show ✓ but connection still fails
+→ Check Logs tab for detailed error messages
+→ Logs show exact failure point (connection refused, timeout, etc)
+→ Share logs with dev team for debugging
 ```
 
 ### Issue: "App crashes on startup"

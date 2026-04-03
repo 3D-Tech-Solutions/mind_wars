@@ -1,6 +1,11 @@
 /**
  * Game Catalog - 12+ games across 5 cognitive categories
  * Mobile-First: Designed for 5" touch screens
+ *
+ * [2026-04-03 Clarification] All games are fully multiplayer.
+ * In a Mind War, any number of players (2-10+) each play the SAME game
+ * independently and simultaneously, then scores are compared.
+ * Games scale to any number of competitors - no player limits.
  */
 
 import '../models/models.dart';
@@ -10,8 +15,6 @@ class GameTemplate {
   final String name;
   final CognitiveCategory category;
   final String description;
-  final int minPlayers;
-  final int maxPlayers;
   final String icon;
   final String rules;
 
@@ -20,8 +23,6 @@ class GameTemplate {
     required this.name,
     required this.category,
     required this.description,
-    required this.minPlayers,
-    required this.maxPlayers,
     required this.icon,
     required this.rules,
   });
@@ -34,31 +35,25 @@ class GameCatalog {
       id: 'memory_match',
       name: 'Memory Match',
       category: CognitiveCategory.memory,
-      description: 'Match pairs of cards by remembering their positions',
-      minPlayers: 2,
-      maxPlayers: 4,
+      description: 'Match pairs of cards by remembering positions',
       icon: '🃏',
-      rules: 'Players take turns flipping two cards. Match pairs to score points.',
+      rules: 'Flip two cards and match pairs. Your matches and speed determine your score in the Mind War.',
     ),
     GameTemplate(
       id: 'sequence_recall',
       name: 'Sequence Recall',
       category: CognitiveCategory.memory,
       description: 'Remember and reproduce increasingly long sequences',
-      minPlayers: 2,
-      maxPlayers: 6,
       icon: '🔢',
-      rules: 'Watch the sequence, then reproduce it. Sequences get longer each round.',
+      rules: 'Watch the sequence, then reproduce it. Sequences get longer each round. Score based on length and accuracy.',
     ),
     GameTemplate(
       id: 'pattern_memory',
       name: 'Pattern Memory',
       category: CognitiveCategory.memory,
-      description: 'Remember complex visual patterns and recreate them',
-      minPlayers: 2,
-      maxPlayers: 8,
+      description: 'Recreate complex visual patterns from memory',
       icon: '🎨',
-      rules: 'Study the pattern briefly, then recreate it from memory.',
+      rules: 'Study the pattern briefly, then recreate it. Accuracy and speed determine your score.',
     ),
 
     // LOGIC GAMES (3)
@@ -66,31 +61,25 @@ class GameCatalog {
       id: 'sudoku_duel',
       name: 'Sudoku Duel',
       category: CognitiveCategory.logic,
-      description: 'Competitive Sudoku solving with time limits',
-      minPlayers: 2,
-      maxPlayers: 4,
+      description: 'Solve Sudoku puzzles with speed and accuracy',
       icon: '🔢',
-      rules: 'Complete the Sudoku puzzle faster than your opponents.',
+      rules: 'Complete the Sudoku puzzle. Speed and correctness determine your score in the Mind War.',
     ),
     GameTemplate(
       id: 'logic_grid',
       name: 'Logic Grid',
       category: CognitiveCategory.logic,
       description: 'Solve logic puzzles using deduction',
-      minPlayers: 2,
-      maxPlayers: 6,
       icon: '🧮',
-      rules: 'Use clues to deduce the correct arrangement of items.',
+      rules: 'Use clues to deduce the correct arrangement. Score based on puzzle completion and time.',
     ),
     GameTemplate(
       id: 'code_breaker',
       name: 'Code Breaker',
       category: CognitiveCategory.logic,
       description: 'Deduce secret codes using logical reasoning',
-      minPlayers: 2,
-      maxPlayers: 4,
       icon: '🔐',
-      rules: 'Guess the secret code. Get feedback on each guess.',
+      rules: 'Guess the secret code. Feedback on each guess helps you narrow down the solution. Score based on guesses and time.',
     ),
 
     // ATTENTION GAMES (3)
@@ -99,30 +88,24 @@ class GameCatalog {
       name: 'Spot the Difference',
       category: CognitiveCategory.attention,
       description: 'Find differences between similar images quickly',
-      minPlayers: 2,
-      maxPlayers: 8,
       icon: '👀',
-      rules: 'Find all differences between two images. Fastest wins.',
+      rules: 'Find all differences between two images. Score based on accuracy and speed.',
     ),
     GameTemplate(
       id: 'color_rush',
       name: 'Color Rush',
       category: CognitiveCategory.attention,
       description: 'Match colors under time pressure',
-      minPlayers: 2,
-      maxPlayers: 10,
       icon: '🌈',
-      rules: 'Quickly identify and match the colors shown.',
+      rules: 'Quickly identify and match colors shown. Your speed and accuracy determine your score.',
     ),
     GameTemplate(
       id: 'focus_finder',
       name: 'Focus Finder',
       category: CognitiveCategory.attention,
       description: 'Locate specific items in cluttered scenes',
-      minPlayers: 2,
-      maxPlayers: 6,
       icon: '🔍',
-      rules: 'Find the target items as quickly as possible.',
+      rules: 'Find target items quickly. Score based on finds and response time.',
     ),
 
     // SPATIAL GAMES (3)
@@ -131,30 +114,24 @@ class GameCatalog {
       name: 'Puzzle Race',
       category: CognitiveCategory.spatial,
       description: 'Complete jigsaw puzzles against the clock',
-      minPlayers: 2,
-      maxPlayers: 4,
       icon: '🧩',
-      rules: 'Assemble the puzzle pieces. Fastest completion wins.',
+      rules: 'Assemble the puzzle pieces. Score based on completion time and accuracy.',
     ),
     GameTemplate(
       id: 'rotation_master',
       name: 'Rotation Master',
       category: CognitiveCategory.spatial,
       description: 'Identify rotated shapes and objects',
-      minPlayers: 2,
-      maxPlayers: 8,
       icon: '🔄',
-      rules: 'Match objects with their rotated counterparts.',
+      rules: 'Match objects with their rotated counterparts. Score based on correct matches and speed.',
     ),
     GameTemplate(
       id: 'path_finder',
       name: 'Path Finder',
       category: CognitiveCategory.spatial,
       description: 'Navigate mazes and find optimal paths',
-      minPlayers: 2,
-      maxPlayers: 6,
       icon: '🗺️',
-      rules: 'Find the shortest path through the maze.',
+      rules: 'Find the shortest path through the maze. Score based on path efficiency and time.',
     ),
 
     // LANGUAGE GAMES (3)
@@ -162,31 +139,25 @@ class GameCatalog {
       id: 'word_builder',
       name: 'Word Builder',
       category: CognitiveCategory.language,
-      description: 'Create words from letter tiles competitively',
-      minPlayers: 2,
-      maxPlayers: 6,
+      description: 'Create words from letter tiles for points',
       icon: '📝',
-      rules: 'Form the highest-scoring words from available letters.',
+      rules: 'Form words from available letters. Score based on word length and letter value.',
     ),
     GameTemplate(
       id: 'anagram_attack',
       name: 'Anagram Attack',
       category: CognitiveCategory.language,
-      description: 'Solve anagrams faster than opponents',
-      minPlayers: 2,
-      maxPlayers: 8,
+      description: 'Solve anagrams quickly',
       icon: '🔤',
-      rules: 'Unscramble words as quickly as possible.',
+      rules: 'Unscramble words as quickly as possible. Score based on speed and accuracy.',
     ),
     GameTemplate(
       id: 'vocabulary_showdown',
       name: 'Vocabulary Showdown',
       category: CognitiveCategory.language,
-      description: 'Test vocabulary knowledge in rapid-fire rounds',
-      minPlayers: 2,
-      maxPlayers: 10,
+      description: 'Test vocabulary knowledge in rapid-fire questions',
       icon: '📚',
-      rules: 'Answer vocabulary questions. Most correct answers wins.',
+      rules: 'Answer vocabulary questions correctly. Score based on correct answers and response time.',
     ),
   ];
 

@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-mindwars}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set in .env file}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
@@ -29,7 +29,7 @@ services:
     restart: unless-stopped
     command: redis-server --appendonly yes
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     networks:

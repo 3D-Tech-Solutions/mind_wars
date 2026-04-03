@@ -32,12 +32,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
   List<GameTemplate> get _filteredGames {
     var games = GameCatalog.getAllGames();
 
-    // Filter by player count
-    games = games
-        .where((game) =>
-            widget.playerCount >= game.minPlayers &&
-            widget.playerCount <= game.maxPlayers)
-        .toList();
+    // All games support any number of players in a Mind War - no filtering needed
 
     // Filter by category
     if (_selectedCategory != null) {
@@ -286,19 +281,6 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
                       ],
                     ),
                     const Spacer(),
-                    Row(
-                      children: [
-                        const Icon(Icons.people, size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${game.minPlayers}-${game.maxPlayers}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ],
-                    ),
                   ],
                 ),
               ),
@@ -494,13 +476,6 @@ class GamePreviewSheet extends StatelessWidget {
                   'How to Play',
                   game.rules,
                   Icons.rule,
-                ),
-                const SizedBox(height: 16),
-                // Players
-                _buildInfoSection(
-                  'Players',
-                  '${game.minPlayers}-${game.maxPlayers} players',
-                  Icons.people,
                 ),
                 const SizedBox(height: 16),
                 // Category description
