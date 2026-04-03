@@ -66,6 +66,8 @@ class LocalAuthService {
         'id': userId,
         'username': username,
         'email': email,
+        'display_name': username,
+        'avatar': null,
         'password_hash': passwordHash,
         'created_at': DateTime.now().toIso8601String(),
         'synced': 0,
@@ -76,6 +78,7 @@ class LocalAuthService {
         id: userId,
         username: username,
         email: email,
+        displayName: username,
         createdAt: DateTime.now(),
       );
       
@@ -108,12 +111,7 @@ class LocalAuthService {
       }
       
       // Create user object
-      _currentUser = User(
-        id: user['id'],
-        username: user['username'],
-        email: user['email'],
-        createdAt: DateTime.parse(user['created_at']),
-      );
+      _currentUser = _mapLocalUser(user);
       
       // Store current user
       await _storeCurrentUser(user['id'], autoLogin: autoLogin);
@@ -157,17 +155,50 @@ class LocalAuthService {
       }
       
       final user = results.first;
-      _currentUser = User(
-        id: user['id'] as String,
-        username: user['username'] as String,
-        email: user['email'] as String,
-        createdAt: DateTime.parse(user['created_at'] as String),
-      );
+      _currentUser = _mapLocalUser(user);
       
       return true;
     } catch (e) {
       return false;
     }
+  }
+
+  /// [2026-03-26 Feature] Persist display name and avatar for local alpha users.
+  ///
+  /// Alpha mode skips the backend entirely, so profile setup has to update the
+  /// local user record and in-memory auth state directly.
+  Future<User> updateProfile({
+    required String userId,
+    required String displayName,
+    required String avatar,
+  }) async {
+    final trimmedDisplayName = displayName.trim();
+
+    await database.update(
+      'local_users',
+      {
+        'display_name': trimmedDisplayName,
+        'avatar': avatar,
+        'synced': 0,
+      },
+      where: 'id = ?',
+      whereArgs: [userId],
+    );
+
+    final results = await database.query(
+      'local_users',
+      where: 'id = ?',
+      whereArgs: [userId],
+      limit: 1,
+    );
+
+    if (results.isEmpty) {
+      throw Exception('Local user not found');
+    }
+
+    final updatedUser = _mapLocalUser(results.first);
+    _currentUser = updatedUser;
+    return updatedUser;
   }
   
   /// Get user by email
@@ -271,6 +302,26 @@ class LocalAuthService {
       {'synced': 1},
       where: 'id = ?',
       whereArgs: [userId],
+    );
+  }
+
+  /// [2026-03-26 Maintenance] Normalize SQLite rows into the shared User model.
+  ///
+  /// Keeping the mapping in one place avoids profile field drift between local
+  /// registration, login, and session restore paths.
+  User _mapLocalUser(Map<String, dynamic> user) {
+    final username = user['username'] as String;
+    final storedDisplayName = user['display_name'] as String?;
+
+    return User(
+      id: user['id'] as String,
+      username: username,
+      email: user['email'] as String,
+      displayName: storedDisplayName == null || storedDisplayName.trim().isEmpty
+          ? username
+          : storedDisplayName,
+      avatar: user['avatar'] as String?,
+      createdAt: DateTime.parse(user['created_at'] as String),
     );
   }
 }

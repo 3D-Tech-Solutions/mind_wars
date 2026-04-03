@@ -47,14 +47,29 @@ class _PathFinderGameState extends BaseGameState<PathFinderGame> {
     int attempts = 0;
     bool solvable = false;
 
+    // Scale difficulty by level: more walls per level
+    final wallCount = _level == 1 ? 16 : _level == 2 ? 24 : 32;
+
     while (!solvable && attempts < maxAttempts) {
       // Generate empty maze
       _maze = List.generate(_gridSize, (_) => List.filled(_gridSize, 0));
 
-      // Add some random walls
-      for (var i = 0; i < _gridSize * 2; i++) {
+      // Add random walls scaled by difficulty
+      final addedWalls = <String>{};
+      while (addedWalls.length < wallCount) {
         final row = random.nextInt(_gridSize);
         final col = random.nextInt(_gridSize);
+        final key = '$row,$col';
+        // Avoid start and end positions
+        if ((row != 0 || col != 0) && (row != _gridSize - 1 || col != _gridSize - 1)) {
+          addedWalls.add(key);
+        }
+      }
+
+      for (var wallPos in addedWalls) {
+        final parts = wallPos.split(',');
+        final row = int.parse(parts[0]);
+        final col = int.parse(parts[1]);
         _maze[row][col] = 1;
       }
 
@@ -140,8 +155,8 @@ class _PathFinderGameState extends BaseGameState<PathFinderGame> {
           addScore(points);
           showMessage('Maze complete! +$points points', success: true);
           _level++;
-          
-          if (_level > 5) {
+
+          if (_level > 3) {
             completeGame();
           } else {
             _generateMaze();

@@ -59,7 +59,7 @@ class _ColorRushGameState extends BaseGameState<ColorRushGame> {
   void _generateRound() {
     final random = Random();
     _targetColor = _baseColors[random.nextInt(_baseColors.length)];
-    
+
     final gridSize = 16;
     // Ensure exactly 2 instances of the target color
     final nonTargetColors = _baseColors.where((c) => c != _targetColor).toList();
@@ -70,12 +70,13 @@ class _ColorRushGameState extends BaseGameState<ColorRushGame> {
     }
     gridColors.shuffle(random);
     _colorGrid = gridColors;
-    
+
     setState(() {
-      _timeRemaining = 3 - (_level ~/ 5).clamp(0, 1);
+      // Scale time pressure by level: Level 1: 3s, Level 2: 2s, Level 3: 1s
+      _timeRemaining = _level == 1 ? 3 : _level == 2 ? 2 : 1;
       _timerActive = true;
     });
-    
+
     _startTimer();
   }
 
@@ -108,8 +109,8 @@ class _ColorRushGameState extends BaseGameState<ColorRushGame> {
       addScore(points);
       showMessage('Correct! +$points points (${_combo}x combo)', success: true);
       _level++;
-      
-      if (_level > 20) {
+
+      if (_level > 3) {
         completeGame();
       } else {
         _generateRound();

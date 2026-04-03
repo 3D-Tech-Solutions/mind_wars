@@ -47,15 +47,25 @@ class _PatternMemoryGameState extends BaseGameState<PatternMemoryGame> {
   }
 
   void _generatePattern() {
+    // Scale grid size and pattern complexity by level
+    if (_level == 1) {
+      _gridSize = 4; // 4x4 grid
+    } else if (_level == 2) {
+      _gridSize = 4; // 4x4 grid
+    } else {
+      _gridSize = 5; // 5x5 grid for hard
+    }
+
     final totalCells = _gridSize * _gridSize;
-    final fillCount = (_gridSize + _level).clamp(4, totalCells ~/ 2);
-    
+    // Scale fill count: level 1: 5, level 2: 7, level 3: 10
+    final fillCount = _level == 1 ? 5 : _level == 2 ? 7 : 10;
+
     _pattern = List.filled(totalCells, false);
     _userPattern = List.filled(totalCells, false);
-    
+
     final random = Random();
     final indices = List.generate(totalCells, (i) => i)..shuffle(random);
-    
+
     for (var i = 0; i < fillCount; i++) {
       _pattern[indices[i]] = true;
     }
@@ -103,10 +113,9 @@ class _PatternMemoryGameState extends BaseGameState<PatternMemoryGame> {
       addScore(20 + _level * 5);
       showMessage('Perfect! +${20 + _level * 5} points', success: true);
       _level++;
-      if (_level > 5) {
+      if (_level > 3) {
         completeGame();
       } else {
-        if (_level == 3) _gridSize = 5;
         _generatePattern();
         _showPattern();
       }

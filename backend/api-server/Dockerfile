@@ -23,9 +23,12 @@ USER nodejs
 # Expose port
 EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:3000/health || exit 1
+# [2026-03-26 Bugfix] Use the same container-local probe that succeeds interactively.
+#
+# The previous spider-based localhost check was intermittently failing even while
+# the Express server was serving traffic, which blocked nginx from starting.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=20s --retries=3 \
+  CMD wget --quiet --output-document=- http://127.0.0.1:3000/health >/dev/null || exit 1
 
 # Start application
 CMD ["node", "src/index.js"]

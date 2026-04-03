@@ -4,7 +4,7 @@
 
 This guide provides a quick reference for deploying Mind Wars backend infrastructure for beta testing in a Docker environment.
 
-**Last Updated**: November 12, 2025  
+**Last Updated**: March 26, 2026  
 **For Detailed Documentation**: See [BETA_TESTING_ARCHITECTURE.md](BETA_TESTING_ARCHITECTURE.md)
 
 ---
@@ -137,6 +137,167 @@ open https://beta.mindwars.app:3002
 - **Users**: 500-1000 (public sign-up with approval)
 - **Infrastructure**: Kubernetes cluster with horizontal scaling
 - **Focus**: Scalability, edge cases, community feedback
+
+---
+
+## Recommended Rollout Order
+
+<!-- [2026-03-26 Testing] Added a feature-by-feature beta rollout order so the team validates one application area at a time against user stories before widening scope. -->
+
+Do not expose the full app surface to beta testers on day one.
+
+Run beta in controlled waves and only expand once the current wave satisfies its user stories and acceptance criteria.
+
+### Wave 0: Account Entry
+- install
+- registration
+- login
+- onboarding
+- profile setup
+
+**Goal**: prove that a tester can go from invitation to usable home screen without support.
+
+### Wave 1: Lobby Readiness
+- create lobby
+- join lobby
+- leave lobby
+- ready state updates
+
+**Goal**: prove that groups can form a playable session reliably.
+
+### Wave 2: One Gameplay Slice
+- game selection or voting
+- one representative game
+- turn submission
+- scoring
+- results
+
+**Goal**: prove one complete multiplayer flow before opening the wider game catalog.
+
+### Wave 3: Social and Progression
+- chat
+- reactions
+- leaderboard
+- badges
+- profile progression
+
+**Goal**: validate retention and social value after core play is stable.
+
+### Wave 4: Reliability and Recovery
+- reconnect behavior
+- offline scenarios
+- sync and retry
+- app background and resume
+
+**Goal**: prove that real-world interruptions do not break user trust.
+
+### Wave 5: Catalog Expansion
+- additional games
+- broader device coverage
+- higher concurrency scenarios
+
+**Goal**: widen confidence without regressing earlier validated flows.
+
+### Rule For Advancing To The Next Wave
+
+Do not advance a wave until:
+
+- no P0 or P1 blocker remains in that area
+- the target stories can be completed consistently by testers
+- telemetry confirms successful completion of the target flow
+- feedback from that wave has been reviewed and the critical fixes are deployed
+
+---
+
+## Android Device-First Validation
+
+<!-- [2026-03-26 Testing] Added an Android phone-first beta validation path so the team can prove installability, first launch, and hosted connectivity on a real device before widening beta scope. -->
+
+Yes, an Android phone is a valid and recommended first beta test device.
+
+It is the right way to validate two separate concerns:
+
+1. **Install and launch validation**: can the APK be delivered, installed, opened, and updated successfully on a real device?
+2. **Hosted beta validation**: can the installed app reach the deployed backend and complete the current wave's user stories over real mobile networking?
+
+### What Your Phone Can Prove Immediately
+
+- the APK can be installed outside the development machine
+- the app launches correctly on real Android hardware
+- permissions, networking, and rendering work on-device
+- the app can reach a public API and WebSocket server from cellular or Wi-Fi
+
+### Important Limitation
+
+Your phone can only validate the beta environment if the backend is reachable from the phone.
+
+That means one of these must be true:
+
+- the backend is deployed to a public host or domain
+- the backend is exposed on your local network using a reachable machine IP
+- you use a secure tunnel or equivalent external access path
+
+If the backend only runs on `localhost` on your laptop, the phone cannot reach it directly.
+
+### Recommended First Android Test Sequence
+
+#### Step 1: Build the Android package
+
+Use the existing Android build path:
+
+```bash
+flutter build apk --flavor alpha --release --dart-define=FLAVOR=alpha
+```
+
+You can also use the existing GitHub Actions workflow in [.github/workflows/build-alpha.yml](/mnt/d/source/3D-Tech-Solutions/mind-wars/.github/workflows/build-alpha.yml) to generate a tester APK artifact or prerelease.
+
+#### Step 2: Install on your phone
+
+- transfer the APK to the device
+- enable installation from unknown sources if needed
+- install the APK
+- confirm the app icon, app name, and launch behavior are correct
+
+#### Step 3: Validate Wave 0 on-device
+
+Start with the first wave only:
+
+- app opens successfully
+- splash screen appears
+- registration works
+- login works
+- onboarding works
+- profile setup completes
+- home screen becomes reachable without support
+
+#### Step 4: Validate hosted connectivity
+
+Once the backend is deployed and reachable:
+
+- disable any device-side assumptions that only work on emulator or localhost
+- test over Wi-Fi first
+- test again over cellular if possible
+- verify API-backed flows and multiplayer socket connectivity
+
+#### Step 5: Promote to the next wave only if Wave 0 passes
+
+Do not begin lobby or gameplay beta validation until account entry is stable on the real device.
+
+### Android Smoke Checklist
+
+- APK installs successfully
+- app launches from the launcher icon
+- cold start reaches the expected first screen
+- registration or login succeeds
+- app survives background and resume during first session
+- backend requests succeed from the phone
+- socket connection succeeds from the phone
+- uninstall and reinstall behavior is understood
+- upgrading from one APK build to the next works as expected
+
+### Current Project Note
+
+The current app already targets externally reachable endpoints in the runtime service initialization in [lib/main.dart](/mnt/d/source/3D-Tech-Solutions/mind-wars/lib/main.dart), which means Android phone testing is feasible as long as that environment is live and healthy.
 
 ---
 

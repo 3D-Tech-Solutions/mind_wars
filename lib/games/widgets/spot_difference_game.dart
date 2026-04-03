@@ -42,21 +42,22 @@ class _SpotDifferenceGameState extends BaseGameState<SpotDifferenceGame> {
   void _generatePuzzle() {
     final random = Random();
     final totalCells = _gridSize * _gridSize;
-    
+
     _pattern1 = List.generate(totalCells, (_) => random.nextBool());
     _pattern2 = List.from(_pattern1);
-    
-    // Create 5 differences
-    final diffCount = 5;
+
+    // Scale differences by level
+    final diffCount = _level == 1 ? 5 : _level == 2 ? 7 : 9;
+
     _differences = [];
     final available = List.generate(totalCells, (i) => i)..shuffle(random);
-    
+
     for (var i = 0; i < diffCount; i++) {
       final index = available[i];
       _pattern2[index] = !_pattern2[index];
       _differences.add(index);
     }
-    
+
     _found = {};
     setState(() {});
   }
@@ -72,7 +73,7 @@ class _SpotDifferenceGameState extends BaseGameState<SpotDifferenceGame> {
       
       if (_found.length == _differences.length) {
         _level++;
-        if (_level > 5) {
+        if (_level > 3) {
           completeGame();
         } else {
           Future.delayed(const Duration(seconds: 1), () {

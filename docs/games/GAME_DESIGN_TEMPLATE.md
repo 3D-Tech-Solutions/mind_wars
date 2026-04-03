@@ -46,6 +46,27 @@
 
 **Example**: "Highest total score across 5 rounds wins. Scoring awards 250 points per correct tile plus 100-point bonus for perfect rounds."
 
+### Ranking Model
+
+Document both ranking layers explicitly:
+
+- **Mind War ranking**: how players are ranked inside one sealed battle.
+- **Persistent ranking eligibility**: whether completed runs route into compatible Global / Regional / National leaderboard buckets.
+
+Every ranked game should reference [MIND_WARS_RANKING_SPEC.md](MIND_WARS_RANKING_SPEC.md) and specify:
+
+- the exact Final Score formula
+- the primary tiebreak metric
+- whether hints are allowed in ranked play
+- whether time is part of score or tiebreak only
+
+Every async Mind Wars game should also reference [MIND_WAR_BATTLE_PAYLOAD_SPEC.md](MIND_WAR_BATTLE_PAYLOAD_SPEC.md) and specify:
+
+- the immutable battle payload fields for that game
+- whether the game uses explicit payload delivery or deterministic seed replay
+- the exact client event log required for server validation
+- how offline continuation preserves the identical battle payload
+
 ---
 
 ## Game Mechanics
@@ -158,6 +179,16 @@ Final Score = (Base Score + Perfect Bonus + Time Bonus) × Streak Multiplier
 
 **Example**:
 "Both players receive identical grids in the same order. Each completes 5 rounds independently at their convenience. After both finish, scores are compared. Highest total score wins. Turn timer: 24 hours per complete 5-round match."
+
+### Persistent Leaderboard Routing
+
+If the game supports ranked play, define how valid runs route into compatible leaderboard buckets.
+
+- Difficulty bucket
+- Pure or Assisted bucket
+- Geographic scope filters
+
+Do not compare runs across incompatible rulesets.
 
 ### Fairness Mechanisms
 [Describe systems ensuring fair competition]

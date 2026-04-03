@@ -56,10 +56,17 @@ class AuthService {
     print('[AuthService] Email: $email');
     print('[AuthService] Password length: ${password.length}');
     
+    /// [2026-03-26 Bugfix] Capture the nullable dependency in a local variable.
+    ///
+    /// The current Android build toolchain is compiling with a Dart version
+    /// that does not support promoting this private final field directly.
+    /// Using a local variable keeps the null check explicit and release builds stable.
+    final localAuthService = _localAuthService;
+
     // Use local auth in alpha mode
-    if (_isAlphaMode && _localAuthService != null) {
+    if (_isAlphaMode && localAuthService != null) {
       print('[AuthService] Using local authentication (alpha mode)');
-      final result = await _localAuthService.register(
+      final result = await localAuthService.register(
         username: username,
         email: email,
         password: password,
@@ -143,9 +150,12 @@ class AuthService {
     required String password,
     bool autoLogin = false,
   }) async {
+    /// [2026-03-26 Bugfix] Use a local promoted reference for local auth access.
+    final localAuthService = _localAuthService;
+
     // Use local auth in alpha mode
-    if (_isAlphaMode && _localAuthService != null) {
-      final result = await _localAuthService.login(
+    if (_isAlphaMode && localAuthService != null) {
+      final result = await localAuthService.login(
         email: email,
         password: password,
         autoLogin: autoLogin,
@@ -180,9 +190,12 @@ class AuthService {
   
   /// Logout user and clear stored data
   Future<void> logout() async {
+    /// [2026-03-26 Bugfix] Use a local promoted reference for local auth access.
+    final localAuthService = _localAuthService;
+
     // Use local auth in alpha mode
-    if (_isAlphaMode && _localAuthService != null) {
-      await _localAuthService.logout();
+    if (_isAlphaMode && localAuthService != null) {
+      await localAuthService.logout();
       _currentUser = null;
       return;
     }
@@ -229,11 +242,14 @@ class AuthService {
   /// Attempt to restore session from stored token
   /// Used for auto-login on app launch
   Future<bool> restoreSession() async {
+    /// [2026-03-26 Bugfix] Use a local promoted reference for local auth access.
+    final localAuthService = _localAuthService;
+
     // Use local auth in alpha mode
-    if (_isAlphaMode && _localAuthService != null) {
-      final restored = await _localAuthService.restoreSession();
+    if (_isAlphaMode && localAuthService != null) {
+      final restored = await localAuthService.restoreSession();
       if (restored) {
-        _currentUser = _localAuthService.currentUser;
+        _currentUser = localAuthService.currentUser;
       }
       return restored;
     }
@@ -266,6 +282,46 @@ class AuthService {
     } catch (e) {
       return false;
     }
+  }
+
+  /// [2026-03-26 Feature] Update the authenticated user's profile identity.
+  ///
+  /// Profile setup now flows through AuthService so alpha builds can persist the
+  /// display name and avatar locally while backend builds continue to use the API.
+  Future<User> updateProfile({
+    required String displayName,
+    required String avatar,
+  }) async {
+    final currentUser = _currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+
+    /// [2026-03-26 Bugfix] Use a local promoted reference for local auth access.
+    final localAuthService = _localAuthService;
+
+    if (_isAlphaMode && localAuthService != null) {
+      final updatedUser = await localAuthService.updateProfile(
+        userId: currentUser.id,
+        displayName: displayName,
+        avatar: avatar,
+      );
+      _currentUser = updatedUser;
+      return updatedUser;
+    }
+
+    await _apiService.updateProfile(
+      userId: currentUser.id,
+      displayName: displayName,
+      avatar: avatar,
+    );
+
+    _currentUser = currentUser.copyWith(
+      displayName: displayName.trim(),
+      avatar: avatar,
+    );
+
+    return _currentUser!;
   }
   
   /// Store authentication data securely

@@ -12,6 +12,11 @@ import '../models/models.dart';
 
 class OfflineService {
   static Database? _database;
+  /// [2026-03-26 Maintenance] Increment the local schema version for profile fields.
+  ///
+  /// Alpha profile setup now persists display names and avatar asset paths for
+  /// locally authenticated users, so the SQLite schema needs to evolve safely.
+  static const int _databaseVersion = 2;
   bool _syncInProgress = false;
 
   /// Initialize database
@@ -28,7 +33,7 @@ class OfflineService {
 
     return await openDatabase(
       path,
-      version: 1,
+      version: _databaseVersion,
       onCreate: (db, version) async {
         // Offline games table
         await db.execute('''
@@ -100,6 +105,8 @@ class OfflineService {
             id TEXT PRIMARY KEY,
             username TEXT NOT NULL UNIQUE,
             email TEXT NOT NULL UNIQUE,
+            display_name TEXT,
+            avatar TEXT,
             password_hash TEXT NOT NULL,
             created_at TEXT NOT NULL,
             synced INTEGER DEFAULT 0
@@ -112,6 +119,16 @@ class OfflineService {
         await db.execute('CREATE INDEX idx_sync_queue_retry ON sync_queue(retry_count)');
         await db.execute('CREATE INDEX idx_local_users_email ON local_users(email)');
         await db.execute('CREATE INDEX idx_local_users_username ON local_users(username)');
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        /// [2026-03-26 Maintenance] Migrate existing alpha installs in place.
+        ///
+        /// Devices that already registered users on schema version 1 should keep
+        /// those accounts while gaining the new profile personalization fields.
+        if (oldVersion < 2) {
+          await db.execute('ALTER TABLE local_users ADD COLUMN display_name TEXT');
+          await db.execute('ALTER TABLE local_users ADD COLUMN avatar TEXT');
+        }
       },
     );
   }

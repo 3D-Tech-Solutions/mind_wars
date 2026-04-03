@@ -112,9 +112,17 @@ class _SequenceRecallGameState extends BaseGameState<SequenceRecallGame> {
         if (_userSequence.length == _sequence.length) {
           addScore(10 * _level);
           _level = _level + 1;
-          showMessage('Correct! Moving to level $_level', success: true);
-          _generateSequence();
-          showSequence();
+
+          if (_level > 3) {
+            showMessage('Game Complete! You won!', success: true);
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) completeGame();
+            });
+          } else {
+            showMessage('Correct! Moving to level $_level', success: true);
+            _generateSequence();
+            showSequence();
+          }
         }
       }
     });

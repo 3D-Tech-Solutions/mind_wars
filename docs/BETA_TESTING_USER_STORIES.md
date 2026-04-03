@@ -4,8 +4,8 @@
 
 This document defines the beta testing program for Mind Wars, including user stories, epics, features, and tasks to support controlled environment beta testing. Beta testing focuses on real-world usage validation before production launch, with hosted servers and structured feedback collection.
 
-**Last Updated**: November 12, 2025  
-**Version**: 1.0  
+**Last Updated**: March 26, 2026  
+**Version**: 1.1  
 **Status**: Planning
 
 ---
@@ -14,14 +14,15 @@ This document defines the beta testing program for Mind Wars, including user sto
 
 1. [Beta Testing Overview](#beta-testing-overview)
 2. [Beta vs Alpha Testing](#beta-vs-alpha-testing)
-3. [Beta Tester User Journey](#beta-tester-user-journey)
-4. [Beta Testing Epics](#beta-testing-epics)
+3. [Story-Gated Beta Validation Strategy](#story-gated-beta-validation-strategy)
+4. [Beta Tester User Journey](#beta-tester-user-journey)
+5. [Beta Testing Epics](#beta-testing-epics)
    - [Epic 1: Beta Infrastructure Setup](#epic-1-beta-infrastructure-setup)
    - [Epic 2: Beta Tester Experience](#epic-2-beta-tester-experience)
    - [Epic 3: Feedback Collection & Analysis](#epic-3-feedback-collection--analysis)
    - [Epic 4: Monitoring & Observability](#epic-4-monitoring--observability)
-5. [User Personas for Beta Testing](#user-personas-for-beta-testing)
-6. [Success Metrics](#success-metrics)
+6. [User Personas for Beta Testing](#user-personas-for-beta-testing)
+7. [Success Metrics](#success-metrics)
 
 ---
 
@@ -54,6 +55,177 @@ Beta testing uses:
 - **Database snapshots** for rollback capability
 - **Rate limiting** to control load
 - **Feature flags** for gradual rollout
+
+---
+
+## Story-Gated Beta Validation Strategy
+
+<!-- [2026-03-26 Testing] Added a vertical-slice beta rollout strategy so the team validates one part of the application at a time against its established user stories before widening test scope. -->
+
+### Core Principle
+
+Beta should not open the full application surface all at once.
+
+Instead, each beta wave should validate one application area at a time against the user stories already defined for that area. A new area is only opened when the current area proves that:
+
+- testers can complete the target stories without facilitator help
+- there are no open P0 or P1 blockers for that area
+- telemetry confirms the expected flow is actually being used successfully
+- feedback from the current wave has been triaged and the critical fixes have shipped
+
+### Recommended Wave Order
+
+#### Wave 0: Access, Install, and Account Entry
+
+**Area under test**:
+- invitation flow
+- app install and first launch
+- registration
+- login
+- onboarding
+- profile setup
+
+**Primary stories to validate**:
+- beta testers can install the app without support escalation
+- new users can register and reach the home screen
+- returning users can log in and recover their session
+- users understand what to do next after first launch
+
+**Exit criteria**:
+- no blocker in install, registration, login, or onboarding
+- at least 90% of testers complete first-session setup successfully
+- crash-free rate is acceptable for the entry flow
+
+#### Wave 1: Lobby Formation and Match Readiness
+
+**Area under test**:
+- create lobby
+- join lobby
+- leave lobby
+- lobby presence updates
+- ready state and lobby configuration
+
+**Primary stories to validate**:
+- hosts can create a lobby and invite others
+- invited testers can join without ambiguity
+- all players see accurate membership and readiness state
+- the group can move from social setup into a playable session
+
+**Exit criteria**:
+- no P0 or P1 issue in create, join, reconnect, or leave flows
+- testers consistently form lobbies without moderator intervention
+- real-time lobby state remains accurate under normal concurrent use
+
+#### Wave 2: One Representative Gameplay Vertical Slice
+
+**Area under test**:
+- game voting or selection
+- turn order
+- move submission
+- scoring
+- round completion
+- post-game results
+
+**Scope rule**:
+- use one representative game first, not the full catalog
+- prefer a game with clear rules and reliable instrumentation
+
+**Primary stories to validate**:
+- players can start a match from a lobby
+- each player understands when it is their turn
+- submitted moves are validated and scored correctly
+- players can finish a round and interpret the result screen
+
+**Exit criteria**:
+- representative game flow completes end-to-end with no critical blockers
+- turn sync, scoring, and result display are trusted by testers
+- support requests indicate rules clarity is sufficient
+
+#### Wave 3: Social and Retention Surfaces
+
+**Area under test**:
+- chat
+- reactions
+- leaderboard
+- badges
+- progression
+- profile updates
+
+**Primary stories to validate**:
+- players can communicate during and around matches
+- users can understand their progress and standings
+- profile and reward surfaces reinforce continued play
+
+**Exit criteria**:
+- social features add value without confusing core play
+- leaderboard and progression data are consistent with server state
+- no abuse, moderation, or privacy issue rises to release-blocking severity
+
+#### Wave 4: Reliability, Offline, and Recovery Flows
+
+**Area under test**:
+- offline play where applicable
+- reconnect after network loss
+- app background and foreground recovery
+- sync queue processing
+- duplicate submission protection
+
+**Primary stories to validate**:
+- users can continue safely through intermittent connectivity
+- local actions reconcile correctly when the app returns online
+- users are not confused about whether progress was saved
+
+**Exit criteria**:
+- reconnect and sync flows are predictable to testers
+- data integrity issues are below release threshold
+- recovery messaging is clear enough for non-technical users
+
+#### Wave 5: Catalog Expansion and Cross-Feature Confidence
+
+**Area under test**:
+- additional games beyond the representative gameplay slice
+- category-level balance and discoverability
+- broader device coverage and load scenarios
+
+**Primary stories to validate**:
+- the proven flow from lobby to results holds across more game types
+- users can discover and understand different games without friction
+- app quality remains stable as scope expands
+
+**Exit criteria**:
+- each newly introduced game passes the same end-to-end story checks
+- no previously cleared wave regresses when additional content is opened
+
+### Wave Governance Rules
+
+For each beta wave, the team should explicitly define:
+
+1. **Stories in scope**: the exact user stories being validated in that wave
+2. **Features disabled or hidden**: any surfaces intentionally excluded to reduce noise
+3. **Telemetry required**: the events needed to confirm story completion and failure points
+4. **Support channel**: where testers report issues for that wave
+5. **Exit review**: a short go/no-go review before the next wave opens
+
+### Story Validation Rubric
+
+Each story under beta should be marked with one of these outcomes:
+
+- **Passed**: testers complete the story consistently and the acceptance criteria hold in real use
+- **Passed with friction**: the story works, but confusion, extra steps, or UX debt is visible
+- **Failed**: users cannot complete the story reliably or a blocker undermines trust
+- **Deferred**: the story was intentionally excluded from the current wave
+
+### Recommended Test Management Pattern
+
+Use a simple matrix for each wave:
+
+| Story / Flow | Persona | Acceptance Criteria | Telemetry Signal | Beta Result | Action |
+|---|---|---|---|---|---|
+| Register and reach home screen | New tester | completes in one session without support | registration success, first-home-view | Passed / Failed | keep, fix, or defer |
+| Create lobby and invite others | Host | lobby can be created and shared | lobby created, join count | Passed / Failed | keep, fix, or defer |
+| Play one full round | Group player | round completes with trusted scoring | round started, turn submitted, round completed | Passed / Failed | keep, fix, or defer |
+
+This keeps beta focused on evidence instead of broad impressions.
 
 ---
 

@@ -67,8 +67,8 @@ class _RotationMasterGameState extends BaseGameState<RotationMasterGame> {
       addScore(points);
       showMessage('Correct! +$points points (${_streak}x streak)', success: true);
       _level++;
-      
-      if (_level > 15) {
+
+      if (_level > 3) {
         completeGame();
       } else {
         _generateRound();

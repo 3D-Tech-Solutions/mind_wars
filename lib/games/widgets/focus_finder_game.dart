@@ -45,25 +45,29 @@ class _FocusFinderGameState extends BaseGameState<FocusFinderGame> {
 
   void _generateScene() {
     final random = Random();
-    
-    // Select 3 targets
+
+    // Scale difficulty: more targets and fewer distractors per level
+    final targetCount = 2 + _level; // Level 1: 3, Level 2: 4, Level 3: 5
+    final distractorCount = 20 - _level; // Level 1: 19, Level 2: 18, Level 3: 17
+
+    // Select targets
     final shuffled = List<String>.from(_itemPool)..shuffle(random);
-    _targets = shuffled.take(3).toList();
-    
+    _targets = shuffled.take(targetCount).toList();
+
     // Create scene with targets and distractors
     _allItems = [];
     for (var target in _targets) {
       _allItems.add(target);
     }
-    
+
     // Add more distractors, ensuring no overlap with targets
     final distractorPool = List<String>.from(_itemPool)
       ..removeWhere((item) => _targets.contains(item));
     distractorPool.shuffle(random);
-    final distractors = distractorPool.take(17).toList();
+    final distractors = distractorPool.take(distractorCount).toList();
     _allItems.addAll(distractors);
     _allItems.shuffle(random);
-    
+
     _found = {};
     setState(() {});
   }
@@ -79,7 +83,7 @@ class _FocusFinderGameState extends BaseGameState<FocusFinderGame> {
       
       if (_found.length == _targets.length) {
         _level++;
-        if (_level > 5) {
+        if (_level > 3) {
           completeGame();
         } else {
           Future.delayed(const Duration(seconds: 1), () {

@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../games/game_catalog.dart';
+import '../utils/brand_assets.dart';
 
 class GameSelectionScreen extends StatefulWidget {
   final int playerCount;
@@ -57,10 +58,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final selectedCategory = _selectedCategory;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select a Game'),
-        backgroundColor: Colors.deepPurple,
+        backgroundColor: BrandAssets.deepNavy,
         elevation: 0,
       ),
       body: Column(
@@ -69,7 +72,16 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.deepPurple,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  BrandAssets.deepNavy,
+                  selectedCategory == null
+                      ? BrandAssets.surface
+                      : BrandAssets.categoryColor(selectedCategory),
+                ],
+              ),
               borderRadius: const BorderRadius.only(
                 bottomLeft: Radius.circular(24),
                 bottomRight: Radius.circular(24),
@@ -77,6 +89,19 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
             ),
             child: Column(
               children: [
+                if (selectedCategory != null)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: SizedBox(
+                      height: 88,
+                      width: double.infinity,
+                      child: Image.asset(
+                        BrandAssets.categoryHero(selectedCategory),
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                if (selectedCategory != null) const SizedBox(height: 12),
                 // Search bar
                 TextField(
                   onChanged: (value) {
@@ -171,7 +196,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
         backgroundColor: Colors.white.withOpacity(0.2),
         selectedColor: Colors.white,
         labelStyle: TextStyle(
-          color: isSelected ? Colors.deepPurple : Colors.white,
+          color: isSelected ? BrandAssets.deepNavy : Colors.white,
           fontWeight: FontWeight.bold,
         ),
       ),
@@ -180,6 +205,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
 
   Widget _buildGameCard(GameTemplate game) {
     final categoryInfo = GameCatalog.getCategoryInfo(game.category);
+    final iconAsset = BrandAssets.gameIcon(game.id);
     
     return Card(
       elevation: 3,
@@ -209,10 +235,16 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
                 ),
               ),
               child: Center(
-                child: Text(
-                  game.icon,
-                  style: const TextStyle(fontSize: 48),
-                ),
+                child: iconAsset != null
+                    ? Image.asset(
+                        iconAsset,
+                        width: 68,
+                        height: 68,
+                      )
+                    : Text(
+                        game.icon,
+                        style: const TextStyle(fontSize: 48),
+                      ),
               ),
             ),
             // Game info
@@ -234,9 +266,10 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
                     const SizedBox(height: 4),
                     Row(
                       children: [
-                        Text(
-                          categoryInfo['icon']!,
-                          style: const TextStyle(fontSize: 12),
+                        Image.asset(
+                          BrandAssets.categoryBadge(game.category),
+                          width: 18,
+                          height: 18,
                         ),
                         const SizedBox(width: 4),
                         Expanded(
@@ -281,10 +314,12 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(
-            Icons.search_off,
-            size: 64,
-            color: Colors.grey,
+          Image.asset(
+            BrandAssets.categoryBadge(_selectedCategory ?? CognitiveCategory.memory),
+            width: 72,
+            height: 72,
+            color: Colors.grey.shade500,
+            colorBlendMode: BlendMode.modulate,
           ),
           const SizedBox(height: 16),
           Text(
@@ -350,18 +385,7 @@ class _GameSelectionScreenState extends State<GameSelectionScreen> {
   }
 
   Color _getCategoryColor(CognitiveCategory category) {
-    switch (category) {
-      case CognitiveCategory.memory:
-        return Colors.blue.shade300;
-      case CognitiveCategory.logic:
-        return Colors.purple.shade300;
-      case CognitiveCategory.attention:
-        return Colors.orange.shade300;
-      case CognitiveCategory.spatial:
-        return Colors.green.shade300;
-      case CognitiveCategory.language:
-        return Colors.pink.shade300;
-    }
+    return BrandAssets.categoryColor(category).withOpacity(0.16);
   }
 }
 
@@ -381,6 +405,7 @@ class GamePreviewSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final categoryInfo = GameCatalog.getCategoryInfo(game.category);
+    final iconAsset = BrandAssets.gameIcon(game.id);
 
     return Container(
       decoration: const BoxDecoration(
@@ -417,10 +442,12 @@ class GamePreviewSheet extends StatelessWidget {
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Center(
-                      child: Text(
-                        game.icon,
-                        style: const TextStyle(fontSize: 56),
-                      ),
+                      child: iconAsset != null
+                          ? Image.asset(iconAsset, width: 72, height: 72)
+                          : Text(
+                              game.icon,
+                              style: const TextStyle(fontSize: 56),
+                            ),
                     ),
                   ),
                 ),
@@ -439,9 +466,10 @@ class GamePreviewSheet extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(
-                      categoryInfo['icon']!,
-                      style: const TextStyle(fontSize: 16),
+                    Image.asset(
+                      BrandAssets.categoryBadge(game.category),
+                      width: 20,
+                      height: 20,
                     ),
                     const SizedBox(width: 8),
                     Text(
@@ -505,7 +533,7 @@ class GamePreviewSheet extends StatelessWidget {
                 child: ElevatedButton(
                   onPressed: onSelect,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.deepPurple,
+                    backgroundColor: BrandAssets.coral,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

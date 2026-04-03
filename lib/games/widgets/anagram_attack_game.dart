@@ -68,7 +68,9 @@ class _AnagramAttackGameState extends BaseGameState<AnagramAttackGame> {
   }
 
   void _nextAnagram() {
-    if (_words.isEmpty) {
+    // Check level progression: 6 words per level
+    // Level 1: Solve 6 anagrams, Level 2: 6 more, Level 3: 6 more
+    if (_words.isEmpty || _level > 3) {
       completeGame();
       return;
     }
@@ -109,8 +111,13 @@ class _AnagramAttackGameState extends BaseGameState<AnagramAttackGame> {
 
     if (cleanUserAnswer == cleanTargetWord) {
       addScore(15);
-      _level = _level + 1;
       showMessage('Correct! +15 points', success: true);
+
+      // Check if we've completed this level (6 words per level)
+      final solvedInLevel = 18 - _words.length;
+      if (solvedInLevel % 6 == 0 && _level < 3) {
+        _level++;
+      }
 
       Future.delayed(const Duration(milliseconds: 800), () {
         if (mounted) {

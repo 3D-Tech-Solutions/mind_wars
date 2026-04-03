@@ -39,22 +39,36 @@ class _PuzzleRaceGameState extends BaseGameState<PuzzleRaceGame> {
   }
 
   void _generatePuzzle() {
+    // Scale grid size and difficulty by level
+    if (_level == 1) {
+      _gridSize = 3; // 3x3 for level 1
+    } else if (_level == 2) {
+      _gridSize = 4; // 4x4 for level 2
+    } else {
+      _gridSize = 4; // 4x4 for level 3 (harder shuffle)
+    }
+
     final totalTiles = _gridSize * _gridSize;
     _tiles = List.generate(totalTiles - 1, (i) => i + 1);
     _tiles.add(0); // 0 represents empty space
-    
-    // Shuffle by making 100 random valid moves
-    // Note: This ensures the puzzle is solvable (all shuffles from solved state are solvable)
-    // For alpha: This provides reasonable difficulty. Future enhancement could verify
-    // puzzle difficulty by checking minimum solution length.
+
+    // Shuffle with difficulty scaling
+    // Level 1: 100 shuffles, Level 2: 120 shuffles, Level 3: 150 shuffles
+    final shuffleCount = _level == 1 ? 100 : _level == 2 ? 120 : 150;
+
+    // Shuffle by making random valid moves (ensures solvability)
     final random = Random();
-    for (var i = 0; i < 100; i++) {
+    _emptyIndex = totalTiles - 1; // Reset empty position to bottom-right
+    for (var i = 0; i < shuffleCount; i++) {
       final validMoves = _getValidMoves();
       if (validMoves.isNotEmpty) {
-        _moveTile(validMoves[random.nextInt(validMoves.length)]);
+        final moveIndex = validMoves[random.nextInt(validMoves.length)];
+        _tiles[_emptyIndex] = _tiles[moveIndex];
+        _tiles[moveIndex] = 0;
+        _emptyIndex = moveIndex;
       }
     }
-    
+
     _moves = 0;
     setState(() {});
   }
@@ -86,11 +100,10 @@ class _PuzzleRaceGameState extends BaseGameState<PuzzleRaceGame> {
         addScore(points);
         showMessage('Solved! +$points points', success: true);
         _level++;
-        
-        if (_level > 5) {
+
+        if (_level > 3) {
           completeGame();
         } else {
-          if (_level == 3) _gridSize = 4;
           _generatePuzzle();
         }
       }
