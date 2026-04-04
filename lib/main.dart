@@ -245,8 +245,8 @@ class HomeScreen extends StatelessWidget {
                 onPressed: () {
                   Navigator.pushNamed(context, '/offline');
                 },
-                icon: const Icon(Icons.offline_bolt),
-                label: const Text('Play Offline'),
+                icon: const Icon(Icons.person),
+                label: const Text('Single Player'),
               ),
               
               const SizedBox(height: 16),
@@ -288,9 +288,15 @@ class HomeScreen extends StatelessWidget {
         children: [
           Icon(Icons.check_circle, size: 20, color: Colors.green[700]),
           const SizedBox(width: 8),
-          Text(
-            text,
-            style: Theme.of(context).textTheme.bodyMedium,
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[800],
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
           ),
         ],
       ),
