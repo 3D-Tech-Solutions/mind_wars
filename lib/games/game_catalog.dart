@@ -179,11 +179,9 @@ class GameCatalog {
   }
 
   /// Get games suitable for player count
+  /// All games support any number of players (2-10+)
   static List<GameTemplate> getGamesForPlayerCount(int playerCount) {
-    return _games
-        .where((game) =>
-            playerCount >= game.minPlayers && playerCount <= game.maxPlayers)
-        .toList();
+    return _games;  // All games support any player count
   }
 
   /// Get random game for player count
@@ -249,8 +247,8 @@ class GameCatalog {
       name: template.name,
       category: template.category,
       description: template.description,
-      minPlayers: template.minPlayers,
-      maxPlayers: template.maxPlayers,
+      minPlayers: 2,  // Minimum 2 players for multiplayer
+      maxPlayers: 10,  // Maximum 10 players per lobby
       currentTurn: 0,
       currentPlayerId: players.first,
       state: _initializeGameState(template.id, players),
