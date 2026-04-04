@@ -15,7 +15,7 @@ const logger = createLogger('auth-routes');
 const registerValidation = [
   body('email').isEmail().normalizeEmail(),
   body('password').isLength({ min: 8 }).matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/),
-  body('displayName').trim().isLength({ min: 2, max: 50 })
+  body('displayName').optional().trim().isLength({ min: 2, max: 50 })
 ];
 
 const loginValidation = [
