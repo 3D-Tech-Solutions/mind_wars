@@ -70,11 +70,17 @@ android {
             applicationIdSuffix ""
             versionNameSuffix ""
         }
-        
+
         alpha {
             dimension "version"
             applicationIdSuffix ".alpha"
             versionNameSuffix "-alpha"
+        }
+
+        local {
+            dimension "version"
+            applicationIdSuffix ".local"
+            versionNameSuffix "-local"
         }
     }
 
