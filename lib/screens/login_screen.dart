@@ -12,6 +12,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
+import '../utils/build_config.dart';
 import '../main.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
@@ -446,6 +447,25 @@ class _LoginScreenState extends State<LoginScreen> {
                     side: const BorderSide(color: BrandAssets.deepNavy),
                   ),
                   child: const Text('Create New Account'),
+                ),
+
+                // Build info display
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${BuildConfig.appName} - ${BuildConfig.buildType} build',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ),

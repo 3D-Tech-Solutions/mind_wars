@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
 import '../utils/validators.dart';
+import '../utils/build_config.dart';
 import '../main.dart';
 import '../utils/brand_animations.dart';
 import '../widgets/debug_panel.dart';
@@ -436,6 +437,25 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       child: const Text('Login'),
                     ),
                   ],
+                ),
+
+                // Build info display
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[900],
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${BuildConfig.appName} - ${BuildConfig.buildType} build',
+                    style: TextStyle(
+                      color: Colors.grey[400],
+                      fontSize: 11,
+                      fontFamily: 'monospace',
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ],
             ),
