@@ -37,11 +37,14 @@ class ApiService {
 
   /// Check backend health/connectivity
   /// Returns true if backend is reachable and healthy
+  /// Note: health endpoint is at the root, not under /api
   Future<bool> healthCheck() async {
     try {
-      print('[API] Performing health check on $baseUrl/health');
+      // Extract base URL without /api suffix for health check
+      final healthUrl = baseUrl.replaceAll('/api', '');
+      print('[API] Performing health check on $healthUrl/health');
       final response = await http.get(
-        Uri.parse('$baseUrl/health'),
+        Uri.parse('$healthUrl/health'),
         headers: _headers,
       ).timeout(const Duration(seconds: 5));
 
