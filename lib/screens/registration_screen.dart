@@ -27,7 +27,6 @@ class RegistrationScreen extends StatefulWidget {
 
 class _RegistrationScreenState extends State<RegistrationScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
@@ -37,10 +36,9 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _obscureConfirmPassword = true;
   int _passwordStrength = 0;
   String? _errorMessage;
-  
+
 @override
   void dispose() {
-    _usernameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -86,12 +84,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       return;
     }
     print('[RegistrationScreen] Form validation PASSED ✓');
-    
-    final username = _usernameController.text.trim();
+
     final email = _emailController.text.trim();
     final password = _passwordController.text;
-    
-    print('[RegistrationScreen] Username: $username');
+
     print('[RegistrationScreen] Email: $email');
     print('[RegistrationScreen] Password length: ${password.length}');
     
@@ -108,7 +104,6 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       
       print('[RegistrationScreen] Calling authService.register()...');
       final result = await authService.register(
-        username: username,
         email: email,
         password: password,
       );
@@ -251,7 +246,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
                 
                 const SizedBox(height: 32),
-                
+
                 // Error message
                 if (_errorMessage != null)
                   Container(
@@ -275,22 +270,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                       ],
                     ),
                   ),
-                
-                // Username field
-                TextFormField(
-                  controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    hintText: 'Enter your username',
-                    prefixIcon: Icon(Icons.person),
-                    border: OutlineInputBorder(),
-                  ),
-                  validator: Validators.validateUsername,
-                  enabled: !_isLoading,
-                ),
-                
-                const SizedBox(height: 16),
-                
+
                 // Email field
                 TextFormField(
                   controller: _emailController,

@@ -60,12 +60,11 @@ class ApiService {
 
   /// Register a new user
   Future<Map<String, dynamic>> register(
-    String username,
     String email,
     String password,
   ) async {
-    // [2025-11-17 Bugfix] Updated to send displayName instead of username (backend expects this field)
-    // Also added response normalization to match expected format (token/user instead of accessToken/data)
+    // [2026-04-04 Refactor] Simplified registration - username now set during profile setup
+    // Backend no longer requires displayName during registration
     try {
       final url = '$baseUrl/auth/register';
       print('[API] Attempting registration for: $email at $url');
@@ -73,7 +72,6 @@ class ApiService {
         Uri.parse(url),
         headers: _headers,
         body: jsonEncode({
-          'displayName': username,  // Backend expects displayName, not username
           'email': email,
           'password': password,
         }),
@@ -98,6 +96,35 @@ class ApiService {
     } catch (e) {
       print('[API] Registration error: $e');
       rethrow;
+    }
+  }
+
+  /// Check if username is available
+  /// Returns {'available': true/false, 'username': suggested_username_if_taken}
+  Future<Map<String, dynamic>> checkUsernameAvailability(String username) async {
+    try {
+      final url = '$baseUrl/auth/check-username';
+      print('[API] Checking username availability: $username');
+      final response = await http.post(
+        Uri.parse(url),
+        headers: _headers,
+        body: jsonEncode({'username': username}),
+      ).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        print('[API] Username check response: $data');
+        return {
+          'available': data['available'] ?? false,
+          'username': data['username'] ?? username,
+        };
+      } else {
+        print('[API] Username check failed with status ${response.statusCode}');
+        return {'available': false, 'username': username};
+      }
+    } catch (e) {
+      print('[API] Username availability check error: $e');
+      return {'available': false, 'username': username};
     }
   }
 

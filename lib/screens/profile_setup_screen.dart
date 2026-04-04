@@ -10,6 +10,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
 import '../widgets/branded_avatar.dart';
@@ -23,11 +24,14 @@ class ProfileSetupScreen extends StatefulWidget {
 
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _usernameController = TextEditingController();
   final _displayNameController = TextEditingController();
-  
+
   String? _selectedAvatar;
   bool _isLoading = false;
   String? _errorMessage;
+  String? _usernameStatus;  // null, 'checking', 'available', 'taken'
+  List<String> _suggestedUsernames = [];
   bool _didInitializeProfile = false;
   
   /// [2026-03-26 Feature] Expose the full imported avatar set during profile setup.
@@ -53,16 +57,25 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       return;
     }
 
-    /// [2026-03-26 Feature] Seed profile setup from the authenticated account.
+    /// [2026-04-04 Feature] Seed profile setup from authenticated account.
     ///
-    /// This preserves the original username casing from registration, prefills
-    /// the display name, and keeps any previously selected avatar visible.
-    final currentUser = Provider.of<AuthService>(context, listen: false).currentUser;
+    /// Username is now entered during profile setup.
+    /// Use email prefix as initial suggestion.
+    final authService = Provider.of<AuthService>(context, listen: false);
+    final currentUser = authService.currentUser;
     if (currentUser != null) {
-      _displayNameController.text =
-          (currentUser.displayName?.trim().isNotEmpty ?? false)
-              ? currentUser.displayName!.trim()
-              : currentUser.username;
+      // Suggest username based on email prefix
+      if (currentUser.email != null && currentUser.email!.isNotEmpty) {
+        final emailPrefix = currentUser.email!.split('@')[0];
+        _usernameController.text = emailPrefix;
+      }
+
+      // Use email as display name initially
+      if (currentUser.displayName?.trim().isNotEmpty ?? false) {
+        _displayNameController.text = currentUser.displayName!.trim();
+      } else if (currentUser.email != null) {
+        _displayNameController.text = currentUser.email!.split('@')[0];
+      }
 
       if (currentUser.avatar != null && currentUser.avatar!.isNotEmpty) {
         _selectedAvatar = currentUser.avatar;
@@ -74,8 +87,54 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   
   @override
   void dispose() {
+    _usernameController.dispose();
     _displayNameController.dispose();
     super.dispose();
+  }
+
+  /// Generate username suggestions when the entered username is taken
+  Future<void> _checkUsernameAvailability(String username) async {
+    if (username.isEmpty) {
+      setState(() {
+        _usernameStatus = null;
+        _suggestedUsernames = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _usernameStatus = 'checking';
+    });
+
+    try {
+      final apiService = Provider.of<ApiService>(context, listen: false);
+      final result = await apiService.checkUsernameAvailability(username);
+
+      if (!mounted) return;
+
+      if (result['available'] == true) {
+        setState(() {
+          _usernameStatus = 'available';
+          _suggestedUsernames = [];
+        });
+      } else {
+        // Generate suggestions based on the taken username
+        final suggestions = <String>[
+          '${username}1',
+          '${username}_pro',
+          '${username}_alt',
+        ];
+        setState(() {
+          _usernameStatus = 'taken';
+          _suggestedUsernames = suggestions;
+        });
+      }
+    } catch (e) {
+      print('[ProfileSetup] Username check error: $e');
+      setState(() {
+        _usernameStatus = null;
+      });
+    }
   }
   
   Future<void> _handleComplete() async {
@@ -83,37 +142,45 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     setState(() {
       _errorMessage = null;
     });
-    
+
     // Validate form
     if (!_formKey.currentState!.validate()) {
       return;
     }
-    
+
+    // Check username availability before completing
+    if (_usernameStatus != 'available') {
+      setState(() {
+        _errorMessage = 'Please choose an available username';
+      });
+      return;
+    }
+
     if (_selectedAvatar == null) {
       setState(() {
         _errorMessage = 'Please select an avatar';
       });
       return;
     }
-    
+
     setState(() {
       _isLoading = true;
     });
-    
+
     try {
       final authService = Provider.of<AuthService>(context, listen: false);
-      
-      /// [2026-03-26 Feature] Persist profile data through the auth layer.
+
+      /// [2026-04-04 Feature] Persist profile data with username through auth layer.
       ///
-      /// This keeps alpha mode local-first while preserving the backend update
-      /// path for non-alpha builds.
+      /// Username is now collected during profile setup and stored with display name.
+      /// This keeps alpha mode local-first while preserving the backend update path.
       await authService.updateProfile(
-        displayName: _displayNameController.text.trim(),
+        displayName: _usernameController.text.trim(),  // Use chosen username as display name
         avatar: _selectedAvatar!,
       );
-      
+
       if (!mounted) return;
-      
+
       // Profile setup complete - navigate to home
       Navigator.of(context).pushReplacementNamed('/home');
     } catch (e) {
@@ -155,7 +222,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Choose your display name and avatar',
+                  'Choose your username and avatar',
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[600],
                   ),
@@ -188,59 +255,101 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                   ),
                 
-                // Username info
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[100],
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.person, color: BrandAssets.coral),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Username',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: Colors.grey[600],
-                            ),
-                          ),
-                          Text(
-                            currentUser?.username ?? '',
-                            style: theme.textTheme.bodyLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-                
-                const SizedBox(height: 24),
-                
-                // Display name field
+                // Username field with availability check
                 TextFormField(
-                  controller: _displayNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Display Name',
-                    hintText: 'Enter your display name',
-                    prefixIcon: Icon(Icons.badge),
-                    border: OutlineInputBorder(),
-                    helperText: 'This is how other players will see you',
+                  controller: _usernameController,
+                  decoration: InputDecoration(
+                    labelText: 'Username',
+                    hintText: 'Enter your username',
+                    prefixIcon: const Icon(Icons.person),
+                    border: const OutlineInputBorder(),
+                    helperText: 'Your unique username for playing',
+                    suffixIcon: _usernameStatus == 'checking'
+                        ? const Padding(
+                            padding: EdgeInsets.all(12.0),
+                            child: SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                          )
+                        : _usernameStatus == 'available'
+                            ? const Icon(Icons.check_circle, color: Colors.green)
+                            : _usernameStatus == 'taken'
+                                ? const Icon(Icons.cancel, color: Colors.red)
+                                : null,
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Display name is required';
+                      return 'Username is required';
                     }
-                    if (value.length < 2) {
-                      return 'Display name must be at least 2 characters';
+                    if (value.length < 3) {
+                      return 'Username must be at least 3 characters';
                     }
-                    if (value.length > 30) {
-                      return 'Display name must be less than 30 characters';
+                    if (value.length > 20) {
+                      return 'Username must be less than 20 characters';
+                    }
+                    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value)) {
+                      return 'Username can only contain letters, numbers, _ and -';
+                    }
+                    return null;
+                  },
+                  onChanged: (value) {
+                    _checkUsernameAvailability(value);
+                  },
+                  enabled: !_isLoading,
+                ),
+
+                // Show username suggestions if taken
+                if (_usernameStatus == 'taken' && _suggestedUsernames.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'That username is taken. Try:',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.orange[700],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: _suggestedUsernames
+                              .map((suggestion) => ActionChip(
+                                    label: Text(suggestion),
+                                    onPressed: () {
+                                      _usernameController.text = suggestion;
+                                      _checkUsernameAvailability(suggestion);
+                                    },
+                                  ))
+                              .toList(),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 24),
+
+                // Display name field (optional, shown as fallback)
+                TextFormField(
+                  controller: _displayNameController,
+                  decoration: const InputDecoration(
+                    labelText: 'Display Name (Optional)',
+                    hintText: 'Enter a display name',
+                    prefixIcon: Icon(Icons.badge),
+                    border: OutlineInputBorder(),
+                    helperText: 'Optional - for your profile. Defaults to your username.',
+                  ),
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty) {
+                      if (value.length < 2) {
+                        return 'Display name must be at least 2 characters';
+                      }
+                      if (value.length > 30) {
+                        return 'Display name must be less than 30 characters';
+                      }
                     }
                     return null;
                   },

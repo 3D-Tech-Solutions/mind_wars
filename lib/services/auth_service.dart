@@ -44,7 +44,6 @@ class AuthService {
   /// Validates email, password strength, and handles errors
   /// [2025-11-18 Feature] Enhanced with comprehensive logging
   Future<AuthResult> register({
-    required String username,
     required String email,
     required String password,
   }) async {
@@ -52,10 +51,9 @@ class AuthService {
     print('[AuthService] Timestamp: ${DateTime.now().toIso8601String()}');
     print('[AuthService] Alpha mode: $_isAlphaMode');
     print('[AuthService] Has local auth service: ${_localAuthService != null}');
-    print('[AuthService] Username: $username');
     print('[AuthService] Email: $email');
     print('[AuthService] Password length: ${password.length}');
-    
+
     /// [2026-03-26 Bugfix] Capture the nullable dependency in a local variable.
     ///
     /// The current Android build toolchain is compiling with a Dart version
@@ -63,11 +61,13 @@ class AuthService {
     /// Using a local variable keeps the null check explicit and release builds stable.
     final localAuthService = _localAuthService;
 
-    // Use local auth in alpha mode
+    // Use local auth in alpha mode - temporarily create a default username
     if (_isAlphaMode && localAuthService != null) {
       print('[AuthService] Using local authentication (alpha mode)');
+      // Use email prefix as temporary username for local auth
+      final tempUsername = email.split('@')[0];
       final result = await localAuthService.register(
-        username: username,
+        username: tempUsername,
         email: email,
         password: password,
       );
@@ -80,24 +80,29 @@ class AuthService {
       print('========== AUTH SERVICE REGISTRATION END ==========\n');
       return result;
     }
-    
+
     // Use API auth in production mode
     try {
       print('[AuthService] Using API authentication (production mode)');
-      
+
       // Client-side validation before API call
       print('[AuthService] Running client-side validation...');
-      final validationError = _validateRegistration(username, email, password);
+      final validationError = _validatePassword(password);
       if (validationError != null) {
         print('[AuthService] Validation failed: $validationError');
         print('========== AUTH SERVICE REGISTRATION FAILED ==========\n');
         return AuthResult(success: false, error: validationError);
       }
+      if (!_isValidEmail(email)) {
+        print('[AuthService] Validation failed: Invalid email');
+        print('========== AUTH SERVICE REGISTRATION FAILED ==========\n');
+        return AuthResult(success: false, error: 'Invalid email address');
+      }
       print('[AuthService] Validation passed ✓');
-      
+
       print('[AuthService] Calling API service register method...');
-      // Call API
-      final response = await _apiService.register(username, email, password);
+      // Call API (without username)
+      final response = await _apiService.register(email, password);
       
       print('[AuthService] API call completed');
       print('[AuthService] Response keys: ${response.keys}');
