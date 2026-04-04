@@ -32,17 +32,29 @@ class User {
         'createdAt': createdAt?.toIso8601String(),
       };
   
-  factory User.fromJson(Map<String, dynamic> json) => User(
-        id: json['id'],
-        // [2025-11-17 Bugfix] Backend returns displayName, use it as username if username not provided
-        username: json['username'] ?? json['displayName'] ?? '',
-        email: json['email'],
-        displayName: json['displayName'],
-        avatar: json['avatar'] ?? json['avatarUrl'],  // Backend uses avatarUrl
-        createdAt: json['createdAt'] != null 
-            ? DateTime.parse(json['createdAt']) 
-            : null,
-      );
+  factory User.fromJson(Map<String, dynamic> json) {
+    // Debug: print response structure
+    print('[User.fromJson] Parsing user data with keys: ${json.keys.toList()}');
+
+    final id = json['id']?.toString() ?? '';
+    final email = json['email']?.toString() ?? '';
+    final username = json['username']?.toString() ??
+                    json['displayName']?.toString() ??
+                    '';
+
+    print('[User.fromJson] Parsed - id: $id, email: $email, username: $username');
+
+    return User(
+      id: id,
+      username: username,
+      email: email,
+      displayName: json['displayName']?.toString(),
+      avatar: json['avatar']?.toString() ?? json['avatarUrl']?.toString(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'].toString())
+          : null,
+    );
+  }
   
   User copyWith({
     String? id,
