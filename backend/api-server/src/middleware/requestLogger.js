@@ -6,14 +6,8 @@ const requestLogger = (req, res, next) => {
 
   res.on('finish', () => {
     const duration = Date.now() - start;
-    logger.info({
-      method: req.method,
-      path: req.path,
-      status: res.statusCode,
-      duration: `${duration}ms`,
-      ip: req.ip,
-      userAgent: req.get('user-agent')
-    });
+    const logMessage = `${req.method} ${req.path} [${res.statusCode}] ${duration}ms - IP: ${req.ip}`;
+    logger.info(logMessage);
   });
 
   next();
