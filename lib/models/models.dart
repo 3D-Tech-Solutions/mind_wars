@@ -13,7 +13,9 @@ class User {
   final String? displayName;
   final String? avatar;
   final DateTime? createdAt;
-  
+  final int? level;
+  final int? totalScore;
+
   User({
     required this.id,
     required this.username,
@@ -21,6 +23,8 @@ class User {
     this.displayName,
     this.avatar,
     this.createdAt,
+    this.level,
+    this.totalScore,
   });
   
   Map<String, dynamic> toJson() => {
@@ -30,6 +34,8 @@ class User {
         'displayName': displayName,
         'avatar': avatar,
         'createdAt': createdAt?.toIso8601String(),
+        'level': level,
+        'totalScore': totalScore,
       };
   
   factory User.fromJson(Map<String, dynamic> json) {
@@ -42,7 +48,35 @@ class User {
                     json['displayName']?.toString() ??
                     '';
 
-    print('[User.fromJson] Parsed - id: $id, email: $email, username: $username');
+    // Parse optional integer fields
+    int? level;
+    try {
+      if (json['level'] != null) {
+        level = int.parse(json['level'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing level: $e');
+    }
+
+    int? totalScore;
+    try {
+      if (json['totalScore'] != null) {
+        totalScore = int.parse(json['totalScore'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing totalScore: $e');
+    }
+
+    DateTime? createdAt;
+    try {
+      if (json['createdAt'] != null) {
+        createdAt = DateTime.parse(json['createdAt'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing createdAt: $e');
+    }
+
+    print('[User.fromJson] Parsed - id: $id, email: $email, username: $username, level: $level, totalScore: $totalScore');
 
     return User(
       id: id,
@@ -50,9 +84,9 @@ class User {
       email: email,
       displayName: json['displayName']?.toString(),
       avatar: json['avatar']?.toString() ?? json['avatarUrl']?.toString(),
-      createdAt: json['createdAt'] != null
-          ? DateTime.parse(json['createdAt'].toString())
-          : null,
+      createdAt: createdAt,
+      level: level,
+      totalScore: totalScore,
     );
   }
   
@@ -63,6 +97,8 @@ class User {
     String? displayName,
     String? avatar,
     DateTime? createdAt,
+    int? level,
+    int? totalScore,
   }) {
     return User(
       id: id ?? this.id,
@@ -71,6 +107,8 @@ class User {
       displayName: displayName ?? this.displayName,
       avatar: avatar ?? this.avatar,
       createdAt: createdAt ?? this.createdAt,
+      level: level ?? this.level,
+      totalScore: totalScore ?? this.totalScore,
     );
   }
 }

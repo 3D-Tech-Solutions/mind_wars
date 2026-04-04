@@ -51,6 +51,21 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       _passwordStrength = Validators.calculatePasswordStrength(value);
     });
   }
+
+  String _improveErrorMessage(String error) {
+    // Improve error messages for better user experience
+    if (error.toLowerCase().contains('email already registered') ||
+        error.toLowerCase().contains('email already exists')) {
+      return 'This email is already registered. Please log in instead or use a different email.';
+    }
+    if (error.toLowerCase().contains('validation failed')) {
+      return 'Please check your input and try again.';
+    }
+    if (error.toLowerCase().contains('network')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    return error;
+  }
   
   Future<void> _handleRegistration() async {
     print('\n========== REGISTRATION SCREEN HANDLER START ==========');
@@ -116,10 +131,15 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
       } else {
         print('[RegistrationScreen] ✗ REGISTRATION FAILED');
         print('[RegistrationScreen] Error message: ${result.error}');
+
+        // Improve error messages for better UX
+        final errorMessage = result.error ?? 'Registration failed - Unknown error';
+        final displayMessage = _improveErrorMessage(errorMessage);
+
         setState(() {
-          _errorMessage = result.error ?? 'Registration failed - Unknown error';
+          _errorMessage = displayMessage;
         });
-        print('[RegistrationScreen] Error state updated');
+        print('[RegistrationScreen] Error state updated: $_errorMessage');
         print('========== REGISTRATION SCREEN HANDLER FAILED ==========\n');
       }
     } catch (e, stackTrace) {

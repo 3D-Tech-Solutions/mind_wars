@@ -40,6 +40,23 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
+  String _improveErrorMessage(String error) {
+    // Improve error messages for better user experience
+    if (error.toLowerCase().contains('invalid email or password')) {
+      return 'Incorrect email or password. Please try again.';
+    }
+    if (error.toLowerCase().contains('user not found')) {
+      return 'This email is not registered. Please create an account.';
+    }
+    if (error.toLowerCase().contains('network')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    if (error.toLowerCase().contains('type') && error.toLowerCase().contains('null')) {
+      return 'Login encountered an error. Please try again.';
+    }
+    return error;
+  }
+
   Future<void> _handleLogin() async {
     // Clear previous error
     setState(() {
@@ -71,12 +88,13 @@ class _LoginScreenState extends State<LoginScreen> {
         Navigator.of(context).pushReplacementNamed('/home');
       } else {
         setState(() {
-          _errorMessage = result.error;
+          _errorMessage = _improveErrorMessage(result.error ?? 'Login failed');
         });
       }
     } catch (e) {
+      print('[LoginScreen] Exception: $e');
       setState(() {
-        _errorMessage = 'Login failed. Please try again.';
+        _errorMessage = _improveErrorMessage(e.toString());
       });
     } finally {
       if (mounted) {
