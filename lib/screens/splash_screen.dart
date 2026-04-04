@@ -23,34 +23,10 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  int _debugTapCount = 0;  // Counter for debug panel access
-
   @override
   void initState() {
     super.initState();
     _initializeApp();
-  }
-
-  void _handleDebugLogoTap() {
-    if (!kAlphaMode) return;  // Only in alpha mode
-
-    setState(() {
-      _debugTapCount++;
-    });
-
-    if (_debugTapCount == 5) {
-      // Show debug panel after 5 taps
-      _debugTapCount = 0;
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          child: SizedBox(
-            height: 600,
-            child: DebugPanel(),
-          ),
-        ),
-      );
-    }
   }
   
   Future<void> _initializeApp() async {
@@ -87,6 +63,28 @@ class _SplashScreenState extends State<SplashScreen> {
   Widget build(BuildContext context) {
     /// [2026-03-16 Integration] Use imported splash art and brand mark instead of placeholder gradients.
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          if (kAlphaMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Debug Panel',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: SizedBox(
+                      height: 600,
+                      child: DebugPanel(),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
       body: Stack(
         fit: StackFit.expand,
         children: [
@@ -104,12 +102,9 @@ class _SplashScreenState extends State<SplashScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 const Spacer(),
-                GestureDetector(
-                  onTap: _handleDebugLogoTap,
-                  child: SvgPicture.asset(
-                    BrandAssets.wordmarkHorizontal,
-                    width: 220,
-                  ),
+                SvgPicture.asset(
+                  BrandAssets.wordmarkHorizontal,
+                  width: 220,
                 ),
                 const SizedBox(height: 28),
                 BrandAnimations.loadingSpinner(size: 64),

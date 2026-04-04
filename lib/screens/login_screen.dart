@@ -33,7 +33,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
   bool _rememberMe = false;
   String? _errorMessage;
-  int _debugTapCount = 0;  // Counter for debug panel access
   
   @override
   void dispose() {
@@ -41,37 +40,6 @@ class _LoginScreenState extends State<LoginScreen> {
     _passwordController.dispose();
     super.dispose();
   }
-
-  void _handleDebugLogoTap() {
-    if (!kAlphaMode) return;  // Only in alpha mode
-
-    setState(() {
-      _debugTapCount++;
-    });
-
-    if (_debugTapCount == 5) {
-      // Show debug panel after 5 taps
-      _debugTapCount = 0;
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          child: SizedBox(
-            height: 600,
-            child: DebugPanel(),
-          ),
-        ),
-      );
-    } else if (_debugTapCount >= 1 && _debugTapCount <= 4) {
-      // Provide haptic feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Debug panel: ${5 - _debugTapCount} taps remaining'),
-          duration: const Duration(milliseconds: 500),
-        ),
-      );
-    }
-  }
-  
   Future<void> _handleLogin() async {
     // Clear previous error
     setState(() {
@@ -214,6 +182,24 @@ class _LoginScreenState extends State<LoginScreen> {
       appBar: AppBar(
         title: const Text('Login'),
         backgroundColor: BrandAssets.deepNavy,
+        actions: [
+          if (kAlphaMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Debug Panel',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: SizedBox(
+                      height: 600,
+                      child: DebugPanel(),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -263,22 +249,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: GestureDetector(
-                    onTap: _handleDebugLogoTap,
-                    child: Column(
-                      children: [
-                        SvgPicture.asset(
-                          BrandAssets.logomark,
-                          width: 88,
-                          height: 88,
-                        ),
-                        const SizedBox(height: 20),
-                        SvgPicture.asset(
-                          BrandAssets.wordmarkHorizontal,
-                          width: 220,
-                        ),
-                      ],
-                    ),
+                  child: Column(
+                    children: [
+                      SvgPicture.asset(
+                        BrandAssets.logomark,
+                        width: 88,
+                        height: 88,
+                      ),
+                      const SizedBox(height: 20),
+                      SvgPicture.asset(
+                        BrandAssets.wordmarkHorizontal,
+                        width: 220,
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 16),

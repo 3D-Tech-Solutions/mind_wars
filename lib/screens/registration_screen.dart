@@ -36,39 +36,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
   bool _obscureConfirmPassword = true;
   int _passwordStrength = 0;
   String? _errorMessage;
-  int _debugTapCount = 0;  // Counter for debug panel access
   
-  void _handleDebugLogoTap() {
-    if (!kAlphaMode) return;  // Only in alpha mode
-
-    setState(() {
-      _debugTapCount++;
-    });
-
-    if (_debugTapCount == 5) {
-      // Show debug panel after 5 taps
-      _debugTapCount = 0;
-      showDialog(
-        context: context,
-        builder: (context) => Dialog(
-          child: SizedBox(
-            height: 600,
-            child: DebugPanel(),
-          ),
-        ),
-      );
-    } else if (_debugTapCount >= 1 && _debugTapCount <= 4) {
-      // Provide user feedback
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Debug panel: ${5 - _debugTapCount} taps remaining'),
-          duration: const Duration(milliseconds: 500),
-        ),
-      );
-    }
-  }
-
-  @override
+@override
   void dispose() {
     _usernameController.dispose();
     _emailController.dispose();
@@ -185,6 +154,24 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create Account'),
+        actions: [
+          if (kAlphaMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Debug Panel',
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => Dialog(
+                    child: SizedBox(
+                      height: 600,
+                      child: DebugPanel(),
+                    ),
+                  ),
+                );
+              },
+            ),
+        ],
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -222,25 +209,18 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                   ),
                   
                 // Header
-                GestureDetector(
-                  onTap: _handleDebugLogoTap,
-                  child: Column(
-                    children: [
-                      const Icon(
-                        Icons.person_add,
-                        size: 64,
-                        color: Color(0xFF6200EE),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Join Mind Wars',
-                        style: theme.textTheme.displaySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
+                const Icon(
+                  Icons.person_add,
+                  size: 64,
+                  color: Color(0xFF6200EE),
                 ),
                 const SizedBox(height: 16),
+                Text(
+                  'Join Mind Wars',
+                  style: theme.textTheme.displaySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
                 Text(
                   'Create your account to start playing',
                   style: theme.textTheme.bodyMedium?.copyWith(
