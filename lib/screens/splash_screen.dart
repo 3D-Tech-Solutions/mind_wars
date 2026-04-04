@@ -13,6 +13,7 @@ import '../main.dart';
 import 'onboarding_screen.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
+import '../widgets/debug_panel.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -22,10 +23,34 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
+  int _debugTapCount = 0;  // Counter for debug panel access
+
   @override
   void initState() {
     super.initState();
     _initializeApp();
+  }
+
+  void _handleDebugLogoTap() {
+    if (!kAlphaMode) return;  // Only in alpha mode
+
+    setState(() {
+      _debugTapCount++;
+    });
+
+    if (_debugTapCount == 5) {
+      // Show debug panel after 5 taps
+      _debugTapCount = 0;
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: SizedBox(
+            height: 600,
+            child: DebugPanel(),
+          ),
+        ),
+      );
+    }
   }
   
   Future<void> _initializeApp() async {
@@ -79,9 +104,12 @@ class _SplashScreenState extends State<SplashScreen> {
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 const Spacer(),
-                SvgPicture.asset(
-                  BrandAssets.wordmarkHorizontal,
-                  width: 220,
+                GestureDetector(
+                  onTap: _handleDebugLogoTap,
+                  child: SvgPicture.asset(
+                    BrandAssets.wordmarkHorizontal,
+                    width: 220,
+                  ),
                 ),
                 const SizedBox(height: 28),
                 BrandAnimations.loadingSpinner(size: 64),

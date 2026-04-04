@@ -15,6 +15,7 @@ import '../utils/validators.dart';
 import '../main.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
+import '../widgets/debug_panel.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -27,17 +28,48 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   bool _rememberMe = false;
   String? _errorMessage;
+  int _debugTapCount = 0;  // Counter for debug panel access
   
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     super.dispose();
+  }
+
+  void _handleDebugLogoTap() {
+    if (!kAlphaMode) return;  // Only in alpha mode
+
+    setState(() {
+      _debugTapCount++;
+    });
+
+    if (_debugTapCount == 5) {
+      // Show debug panel after 5 taps
+      _debugTapCount = 0;
+      showDialog(
+        context: context,
+        builder: (context) => Dialog(
+          child: SizedBox(
+            height: 600,
+            child: DebugPanel(),
+          ),
+        ),
+      );
+    } else if (_debugTapCount >= 1 && _debugTapCount <= 4) {
+      // Provide haptic feedback
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Debug panel: ${5 - _debugTapCount} taps remaining'),
+          duration: const Duration(milliseconds: 500),
+        ),
+      );
+    }
   }
   
   Future<void> _handleLogin() async {
@@ -231,19 +263,22 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Column(
-                    children: [
-                      SvgPicture.asset(
-                        BrandAssets.logomark,
-                        width: 88,
-                        height: 88,
-                      ),
-                      const SizedBox(height: 20),
-                      SvgPicture.asset(
-                        BrandAssets.wordmarkHorizontal,
-                        width: 220,
-                      ),
-                    ],
+                  child: GestureDetector(
+                    onTap: _handleDebugLogoTap,
+                    child: Column(
+                      children: [
+                        SvgPicture.asset(
+                          BrandAssets.logomark,
+                          width: 88,
+                          height: 88,
+                        ),
+                        const SizedBox(height: 20),
+                        SvgPicture.asset(
+                          BrandAssets.wordmarkHorizontal,
+                          width: 220,
+                        ),
+                      ],
+                    ),
                   ),
                 ),
                 const SizedBox(height: 16),
