@@ -63,17 +63,14 @@ class ApiService {
     String email,
     String password,
   ) async {
-    // [2026-04-04 Refactor] Simplified registration - username now set during profile setup
-    // Backend still requires displayName, so use email prefix as temporary value
+    // [2026-04-04 Refactor] Simplified registration - username/displayName now set during profile setup
     try {
       final url = '$baseUrl/auth/register';
-      final emailPrefix = email.split('@')[0];  // Extract prefix for temporary displayName
       print('[API] Attempting registration for: $email at $url');
       final response = await http.post(
         Uri.parse(url),
         headers: _headers,
         body: jsonEncode({
-          'displayName': emailPrefix,  // Backend requires displayName, temp value until profile setup
           'email': email,
           'password': password,
         }),
