@@ -344,11 +344,13 @@ class AuthService {
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, token);
-    await prefs.setString(_userIdKey, userData['id']);
-    await prefs.setString(_usernameKey, userData['username']);
-    await prefs.setString(_emailKey, userData['email']);
+    await prefs.setString(_userIdKey, userData['id'] ?? '');
+    // Backend sends 'displayName' instead of 'username'
+    final username = userData['displayName'] ?? userData['username'] ?? '';
+    await prefs.setString(_usernameKey, username);
+    await prefs.setString(_emailKey, userData['email'] ?? '');
     await prefs.setBool(_autoLoginKey, autoLogin);
-    
+
     _apiService.setAuthToken(token);
   }
   

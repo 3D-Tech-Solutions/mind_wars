@@ -452,19 +452,37 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Build info display
                 const SizedBox(height: 24),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.grey[900],
+                    color: BuildConfig.isLocal ? Colors.blue[900] : Colors.grey[900],
                     borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${BuildConfig.appName} - ${BuildConfig.buildType} build',
-                    style: TextStyle(
-                      color: Colors.grey[400],
-                      fontSize: 11,
-                      fontFamily: 'monospace',
+                    border: Border.all(
+                      color: BuildConfig.isLocal ? Colors.blue[400]! : Colors.grey[700]!,
+                      width: 1,
                     ),
-                    textAlign: TextAlign.center,
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        BuildConfig.appName,
+                        style: TextStyle(
+                          color: BuildConfig.isLocal ? Colors.blue[200] : Colors.grey[300],
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      Text(
+                        '${BuildConfig.buildType} • ${BuildConfig.apiBaseUrl}',
+                        style: TextStyle(
+                          color: BuildConfig.isLocal ? Colors.blue[300] : Colors.grey[400],
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               ],
