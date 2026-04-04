@@ -210,22 +210,152 @@ lib/
 4. **Input Validation**: Client validates locally, server re-validates
 5. **Cheating Prevention**: Score calculation happens server-side
 
-## Offline Resilience
+## Offline Resilience & Sync Architecture
 
 ### SQLite Schema
 ```sql
-1. offline_games: Store completed games awaiting sync
-2. user_progress: Local progress tracking
-3. sync_queue: Failed API calls for retry
-4. game_cache: Cached game data for offline play
+-- Table 1: offline_games - Stores completed games awaiting sync to server
+CREATE TABLE offline_games (
+  id TEXT PRIMARY KEY,
+  gameId TEXT NOT NULL,
+  playerId TEXT NOT NULL,
+  moves JSON,
+  score INTEGER,
+  completedAt DATETIME,
+  synced BOOLEAN DEFAULT FALSE,
+  syncedAt DATETIME
+);
+
+-- Table 2: user_progress - Tracks local progress and XP
+CREATE TABLE user_progress (
+  playerId TEXT PRIMARY KEY,
+  totalGames INTEGER,
+  totalScore INTEGER,
+  level INTEGER,
+  badges JSON,
+  lastUpdated DATETIME
+);
+
+-- Table 3: sync_queue - Tracks failed API calls for retry
+CREATE TABLE sync_queue (
+  id TEXT PRIMARY KEY,
+  endpoint TEXT NOT NULL,
+  method TEXT,
+  payload JSON,
+  retryCount INTEGER DEFAULT 0,
+  createdAt DATETIME,
+  lastRetried DATETIME
+);
+
+-- Table 4: game_cache - Cached game definitions for offline play
+CREATE TABLE game_cache (
+  gameId TEXT PRIMARY KEY,
+  gameData JSON,
+  cachedAt DATETIME
+);
 ```
 
-### Sync Strategy
-1. Optimistic updates on client
-2. Queue failed requests in sync_queue
-3. Automatic retry on reconnection (max 5 attempts)
-4. Server validation before accepting scores
-5. Conflict resolution: server wins
+### Backend Verification Strategy
+
+**Server-Side SQLite Validation:**
+1. **Integrity Checks**: Verify offline_games table contents against expected schema
+2. **Score Validation**: 
+   - Recalculate scores server-side using game rules
+   - Compare with submitted local scores
+   - Detect cheating attempts (impossible scores, invalid moves)
+3. **Move Validation**:
+   - Replay all submitted moves through server-side game engine
+   - Verify move legality according to game rules
+   - Check timestamps for logical consistency (no move before game start)
+4. **User Progress Validation**:
+   - Verify user_progress totals match sum of offline_games
+   - Ensure progression is monotonic (scores don't decrease)
+   - Check badge eligibility based on game performance
+
+**Conflict Detection:**
+- Compare local timestamps with server's last-sync timestamp
+- Detect if user played offline then manually modified database
+- Flag suspicious score jumps or impossible move sequences
+
+### Sync Queue Processing
+
+**Automatic Sync Flow:**
+```
+1. Game Completion → Optimistic Update (immediate UI feedback)
+                  ↓
+2. Queue Sync Request → Store in sync_queue
+                      ↓
+3. On Connectivity → Check network status
+4. Batch Request → Group multiple game submissions
+                ↓
+5. Server Validation → Verify moves, scores, user progress
+                    ↓
+6. Accept/Reject → Mark offline_games as synced or queue for retry
+                ↓
+7. Retry Logic → Max 5 attempts with exponential backoff
+8. Completion → Remove from sync_queue, mark offline_games.synced=true
+```
+
+**Retry Strategy:**
+- Attempt 1: Immediate (on connectivity detection)
+- Attempt 2: 10 seconds later
+- Attempt 3: 30 seconds later  
+- Attempt 4: 2 minutes later
+- Attempt 5: 10 minutes later
+- Final: Mark as failed and notify user
+
+### Conflict Resolution Pattern
+
+**Server Wins (Authoritative):**
+```
+Local offline_games table:  Game#1 → Score: 850 → submitted 3 hours ago
+Server comparison:          Game#1 → Score: 800 (calculated from moves)
+
+Action: Server accepts local score IF moves validate correctly
+        If move validation fails: Server score (800) wins, local rejected
+```
+
+**Optimistic Update with Confirmation:**
+```
+Client Side:
+  1. User completes game → Score shows 850 (optimistic)
+  2. Write to offline_games (synced=FALSE)
+  3. Submit API request asynchronously
+  
+Server Side:
+  4. Validate all moves through game engine
+  5. Calculate authoritative score
+  6. If validation passes → Accept score, update leaderboard
+     If validation fails → Reject, send back corrected score
+  
+Client Rollback:
+  7. If server rejects → Update offline_games with server score
+     Show notification: "Server validation updated your score"
+```
+
+### Local Game Enablement
+
+**Offline Game Pool:**
+- All 15 games (100% available offline)
+- Pre-cached game definitions on app install
+- Cache updated weekly or on new game release
+
+**Local Game Flow:**
+```
+1. User starts game while offline
+2. Load game definition from game_cache table
+3. Generate random parameters (board state, etc)
+4. User plays to completion
+5. Calculate score locally using game rules
+6. Store in offline_games with synced=FALSE
+7. On reconnect → Attempt sync with 5-retry queue
+```
+
+**Fallback Handling:**
+- If sync fails after 5 attempts: Show "Retry Later" option
+- User can retry manually or wait for automatic retry
+- Game results never lost (stored in SQLite until synced)
+- User can continue playing offline even with failed syncs
 
 ## Performance Considerations
 
