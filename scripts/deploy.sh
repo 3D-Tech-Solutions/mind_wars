@@ -84,12 +84,19 @@ flutter build apk \
     --dart-define=LOCAL_HOST=$LOCAL_HOST \
     --$BUILD_TYPE 2>&1 | tail -10
 
-# Determine correct APK path based on flutter build output structure
-APK_PATH="$PROJECT_ROOT/build/app/outputs/apk/${FLAVOR}/${BUILD_TYPE}/app-${FLAVOR}-arm64-v8a-${BUILD_TYPE}.apk"
+# Determine correct APK path - flutter builds to flutter-apk directory
+APK_PATH="$PROJECT_ROOT/build/app/outputs/flutter-apk/app-${FLAVOR}-${BUILD_TYPE}.apk"
+
+# Fallback to alternative path structure if not found
+if [ ! -f "$APK_PATH" ]; then
+    APK_PATH="$PROJECT_ROOT/build/app/outputs/apk/${FLAVOR}/${BUILD_TYPE}/app-${FLAVOR}-arm64-v8a-${BUILD_TYPE}.apk"
+fi
 
 if [ ! -f "$APK_PATH" ]; then
-    echo -e "${RED}✗ APK not found at expected path!${NC}"
-    echo "  Expected: $APK_PATH"
+    echo -e "${RED}✗ APK not found!${NC}"
+    echo "  Checked paths:"
+    echo "    - $PROJECT_ROOT/build/app/outputs/flutter-apk/app-${FLAVOR}-${BUILD_TYPE}.apk"
+    echo "    - $PROJECT_ROOT/build/app/outputs/apk/${FLAVOR}/${BUILD_TYPE}/app-${FLAVOR}-arm64-v8a-${BUILD_TYPE}.apk"
     echo "  Available APKs:"
     find "$PROJECT_ROOT/build/app/outputs" -name "*.apk" -type f 2>/dev/null | head -10
     exit 1
