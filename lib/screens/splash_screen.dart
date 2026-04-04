@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import '../services/auth_service.dart';
+import '../services/api_service.dart';
 import '../main.dart';
 import 'onboarding_screen.dart';
 import '../utils/brand_assets.dart';
@@ -32,22 +33,58 @@ class _SplashScreenState extends State<SplashScreen> {
   Future<void> _initializeApp() async {
     // Wait a minimum time for splash screen
     await Future.delayed(const Duration(seconds: 1));
-    
+
     if (!mounted) return;
-    
+
     final authService = Provider.of<AuthService>(context, listen: false);
-    
+    final apiService = Provider.of<ApiService>(context, listen: false);
+
+    // Check backend health/connectivity
+    print('[SplashScreen] Checking backend connectivity...');
+    final isBackendHealthy = await apiService.healthCheck();
+
+    if (!mounted) return;
+
+    if (!isBackendHealthy && !kAlphaMode) {
+      // In production mode, show error if backend is unreachable
+      print('[SplashScreen] Backend unhealthy in production mode');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Backend service unavailable. Please try again later.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 5),
+        ),
+      );
+      return;
+    }
+
+    if (!isBackendHealthy && kAlphaMode) {
+      // In alpha mode, warn but continue with local auth
+      print('[SplashScreen] Backend unhealthy in alpha mode - will use local auth');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Backend unreachable - using offline mode'),
+          backgroundColor: Colors.orange,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    } else {
+      print('[SplashScreen] Backend health check passed ✓');
+    }
+
+    if (!mounted) return;
+
     // Try to restore session
     final hasSession = await authService.restoreSession();
-    
+
     if (!mounted) return;
-    
+
     if (hasSession) {
       // User is logged in - check if onboarding is complete
       final shouldShow = await shouldShowOnboarding();
-      
+
       if (!mounted) return;
-      
+
       if (shouldShow) {
         Navigator.of(context).pushReplacementNamed('/onboarding');
       } else {

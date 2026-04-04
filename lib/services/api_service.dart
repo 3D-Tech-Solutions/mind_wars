@@ -33,6 +33,26 @@ class ApiService {
     return headers;
   }
 
+  // ============== Health Check ==============
+
+  /// Check backend health/connectivity
+  /// Returns true if backend is reachable and healthy
+  Future<bool> healthCheck() async {
+    try {
+      print('[API] Performing health check on $baseUrl/health');
+      final response = await http.get(
+        Uri.parse('$baseUrl/health'),
+        headers: _headers,
+      ).timeout(const Duration(seconds: 5));
+
+      print('[API] Health check response: ${response.statusCode}');
+      return response.statusCode == 200;
+    } catch (e) {
+      print('[API] Health check failed: $e');
+      return false;
+    }
+  }
+
   // ============== Authentication ==============
 
   /// Register a new user
