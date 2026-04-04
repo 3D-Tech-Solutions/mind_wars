@@ -241,4 +241,35 @@ router.get('/me', authenticate, async (req, res, next) => {
   }
 });
 
+// POST /api/auth/check-username - Check if username is available
+router.post('/check-username', async (req, res, next) => {
+  try {
+    const { username } = req.body;
+
+    if (!username || username.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        available: false,
+        error: 'Username is required'
+      });
+    }
+
+    // Check if username already exists (using display_name field)
+    const result = await query(
+      'SELECT id FROM users WHERE LOWER(display_name) = LOWER($1)',
+      [username.trim()]
+    );
+
+    const available = result.rows.length === 0;
+
+    res.json({
+      success: true,
+      available,
+      username: username.trim()
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 module.exports = router;
