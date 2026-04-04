@@ -67,12 +67,15 @@ router.post('/register', authLimiter, registerValidation, async (req, res, next)
     // Hash password
     const passwordHash = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS) || 12);
 
+    // Use provided displayName or default to empty string (will be set during profile setup)
+    const finalDisplayName = displayName || '';
+
     // Create user
     const result = await query(
       `INSERT INTO users (email, password_hash, display_name, created_at, updated_at)
        VALUES ($1, $2, $3, NOW(), NOW())
        RETURNING id, email, display_name, created_at`,
-      [email, passwordHash, displayName]
+      [email, passwordHash, finalDisplayName]
     );
 
     const user = result.rows[0];
