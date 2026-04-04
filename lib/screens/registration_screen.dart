@@ -444,10 +444,20 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                         textAlign: TextAlign.center,
                       ),
                       Text(
-                        '${BuildConfig.buildType} • ${BuildConfig.apiBaseUrl}',
+                        'v${BuildConfig.appVersion}+${BuildConfig.buildNumber} (${BuildConfig.buildType})',
                         style: TextStyle(
                           color: BuildConfig.isLocal ? Colors.blue[300] : Colors.grey[400],
                           fontSize: 10,
+                          fontFamily: 'monospace',
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        BuildConfig.apiBaseUrl,
+                        style: TextStyle(
+                          color: BuildConfig.isLocal ? Colors.blue[300] : Colors.grey[400],
+                          fontSize: 9,
                           fontFamily: 'monospace',
                         ),
                         textAlign: TextAlign.center,

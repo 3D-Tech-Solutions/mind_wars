@@ -49,6 +49,10 @@ class BuildConfig {
     return '';
   }
 
+  // Version and build tracking
+  static const String appVersion = '1.0.2';  // Update in sync with pubspec.yaml
+  static const int buildNumber = 2;           // Update in sync with pubspec.yaml
+
   // Feature flags based on build type
   static bool get enableDebugLogging => isDebug || isAlpha || isLocal;
   static bool get enableAnalytics => isProduction;
