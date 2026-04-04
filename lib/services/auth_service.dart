@@ -168,22 +168,34 @@ class AuthService {
     
     // Use API auth in production mode
     try {
+      print('[AuthService.login] Calling API login...');
       // Call API
       final response = await _apiService.login(email, password);
-      
+
+      print('[AuthService.login] API response keys: ${response.keys.toList()}');
+      print('[AuthService.login] Response: $response');
+
       // Store token and user info
       if (response['token'] != null && response['user'] != null) {
+        print('[AuthService.login] Response has token and user');
         final token = response['token'] as String;
         final userData = response['user'] as Map<String, dynamic>;
-        
+
+        print('[AuthService.login] User data keys: ${userData.keys.toList()}');
+        print('[AuthService.login] Creating User from data...');
+
         await _storeAuthData(token, userData, autoLogin: autoLogin);
         _currentUser = User.fromJson(userData);
-        
+
+        print('[AuthService.login] ✓ Login successful, user: ${_currentUser?.username}');
         return AuthResult(success: true, user: _currentUser);
       }
-      
-      return AuthResult(success: false, error: 'Login failed');
-    } catch (e) {
+
+      print('[AuthService.login] ✗ Response missing token or user. Keys: ${response.keys.toList()}');
+      return AuthResult(success: false, error: 'Login failed - Invalid response');
+    } catch (e, stackTrace) {
+      print('[AuthService.login] ✗ Exception: $e');
+      print('[AuthService.login] Stack trace: $stackTrace');
       return AuthResult(success: false, error: _handleError(e));
     }
   }

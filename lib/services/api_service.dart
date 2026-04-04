@@ -104,6 +104,7 @@ class ApiService {
   /// Login user
   Future<Map<String, dynamic>> login(String email, String password) async {
     // [2025-11-17 Bugfix] Updated to normalize backend response format
+    print('[API.login] Starting login for: $email');
     final response = await http.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: _headers,
@@ -113,25 +114,35 @@ class ApiService {
       }),
     );
 
+    print('[API.login] Response status: ${response.statusCode}');
+    print('[API.login] Response body: ${response.body}');
+
     final data = _handleResponse(response);
-    
+
+    print('[API.login] Parsed response data keys: ${data.keys.toList()}');
+    print('[API.login] Full parsed response: $data');
+
     // [2025-11-17 Bugfix] Normalize response format - backend returns {success, data: {user, accessToken}}
     // but app expects {token, user}
     if (data['success'] == true && data['data'] != null) {
+      print('[API.login] Response has success:true and data object');
       final responseData = data['data'];
       final token = responseData['accessToken'];
       setAuthToken(token);
-      return {
+      final normalizedResponse = {
         'token': token,
         'refreshToken': responseData['refreshToken'],
         'user': responseData['user'],
       };
+      print('[API.login] Normalized response: ${normalizedResponse.keys.toList()}');
+      return normalizedResponse;
     }
-    
+
+    print('[API.login] Response does not match normalized format, returning as-is');
     if (data['token'] != null) {
       setAuthToken(data['token']);
     }
-    
+
     return data;
   }
 
