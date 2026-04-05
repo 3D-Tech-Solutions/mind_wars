@@ -22,10 +22,33 @@ BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
+detect_local_host() {
+    local ip
+    ip=$(ip route get 8.8.8.8 2>/dev/null | awk '/src/ {print $7; exit}')
+    if [ -z "$ip" ]; then
+        ip=$(hostname -I | awk '{print $1}')
+    fi
+    echo "${ip:-172.16.0.4}"
+}
+
+
 # Flavor settings
 FLAVOR="${1:-local}"
-LOCAL_HOST="${2:-172.16.0.4}"
+LOCAL_HOST="${2:-}"
 BUILD_TYPE="${3:-debug}"
+
+if [ -z "$LOCAL_HOST" ] || [[ "$LOCAL_HOST" =~ ^(debug|release|profile)$ ]]; then
+    BUILD_TYPE="${LOCAL_HOST:-$BUILD_TYPE}"
+    LOCAL_HOST="$(detect_local_host)"
+fi
+
+if [ -z "$LOCAL_HOST" ]; then
+    LOCAL_HOST="$(detect_local_host)"
+fi
+
+if [ -z "$BUILD_TYPE" ]; then
+    BUILD_TYPE="debug"
+fi
 
 # Map flavor to package name variants
 PACKAGE_BASE="com.mindwars.app"
@@ -45,25 +68,44 @@ echo -e "${YELLOW}Build Type:${NC} $BUILD_TYPE"
 echo ""
 
 # Step 1: Check for connected devices
-echo -e "${BLUE}[1/5] Checking for connected devices...${NC}"
-DEVICES=$(adb devices | grep -v "^List of attached devices" | grep "device$" | awk '{print $1}')
-DEVICE_COUNT=$(echo "$DEVICES" | grep -c ".*" || true)
+echo -e "${BLUE}[1/6] Checking for connected devices...${NC}"
+mapfile -t DEVICES < <(adb devices | grep -v "^List of attached devices" | grep "device$" | awk '{print $1}')
+DEVICE_COUNT=${#DEVICES[@]}
 
-if [ "$DEVICE_COUNT" -eq 0 ]; then
-    echo -e "${RED}✗ No devices found!${NC}"
-    echo "Please connect an Android device or start an emulator."
+if [ "$DEVICE_COUNT" -lt 2 ]; then
+    echo -e "${RED}╔══════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║          ⛔  MULTIPLAYER TESTING HALTED                  ║${NC}"
+    echo -e "${RED}╠══════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${RED}║  Multiplayer testing requires at least 2 ADB devices.   ║${NC}"
+    echo -e "${RED}║  Currently detected: $DEVICE_COUNT device(s)                        ║${NC}"
+    echo -e "${RED}║                                                          ║${NC}"
+    echo -e "${RED}║  Testing team: please connect both devices and retry.   ║${NC}"
+    echo -e "${RED}║  Run: adb devices                                        ║${NC}"
+    echo -e "${RED}╚══════════════════════════════════════════════════════════╝${NC}"
     exit 1
 fi
 
 echo -e "${GREEN}✓ Found $DEVICE_COUNT device(s):${NC}"
-echo "$DEVICES" | while read device; do
+for device in "${DEVICES[@]}"; do
     echo "  - $device"
 done
 echo ""
 
+if [ "$FLAVOR" = "local" ] && [ ${#DEVICES[@]} -gt 0 ]; then
+    FIRST_DEVICE="${DEVICES[0]}"
+    echo -e "${BLUE}[1.5/6] LAN Connectivity Instructions for Local Build${NC}"
+    echo -e "${YELLOW}For true LAN testing, ensure your Android devices are on the same WiFi network as this host.${NC}"
+    echo -e "${YELLOW}Host IP: $LOCAL_HOST${NC}"
+    echo -e "${YELLOW}Backend URLs:${NC}"
+    echo -e "${YELLOW}  - API: http://$LOCAL_HOST:3000${NC}"
+    echo -e "${YELLOW}  - WebSocket: http://$LOCAL_HOST:4001${NC}"
+    echo -e "${YELLOW}The app will use these URLs when FLAVOR=local.${NC}"
+    echo ""
+fi
+
 # Step 2: Uninstall previous versions
-echo -e "${BLUE}[2/5] Uninstalling previous app versions...${NC}"
-echo "$DEVICES" | while read device; do
+echo -e "${BLUE}[2/6] Uninstalling previous app versions...${NC}"
+for device in "${DEVICES[@]}"; do
     for pkg in "${PACKAGE_VARIANTS[@]}"; do
         if adb -s "$device" shell pm list packages | grep -q "^package:$pkg$"; then
             echo -e "${CYAN}  Uninstalling $pkg from $device...${NC}"
@@ -75,7 +117,7 @@ echo -e "${GREEN}✓ Previous versions cleaned${NC}"
 echo ""
 
 # Step 3: Clean and build APK
-echo -e "${BLUE}[3/5] Building APK...${NC}"
+echo -e "${BLUE}[3/6] Building APK...${NC}"
 cd "$PROJECT_ROOT"
 flutter clean > /dev/null 2>&1
 flutter build apk \
@@ -109,25 +151,25 @@ echo -e "  Size: $APK_SIZE"
 echo ""
 
 # Step 4: Install on all devices
-echo -e "${BLUE}[4/5] Installing APK on connected devices...${NC}"
-FAILED_DEVICES=""
+echo -e "${BLUE}[4/6] Installing APK on connected devices...${NC}"
+FAILED_DEVICES=()
 
-echo "$DEVICES" | while read device; do
+for device in "${DEVICES[@]}"; do
     echo -e "${YELLOW}Installing on $device...${NC}"
     if adb -s "$device" install -r "$APK_PATH" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ Installed on $device${NC}"
     else
         echo -e "${RED}✗ Failed to install on $device${NC}"
-        FAILED_DEVICES="$FAILED_DEVICES $device"
+        FAILED_DEVICES+=("$device")
     fi
 done
 echo ""
 
 # Step 5: Launch app on all devices
-echo -e "${BLUE}[5/5] Launching app on devices...${NC}"
+echo -e "${BLUE}[5/6] Launching app on devices...${NC}"
 PACKAGE_NAME="${PACKAGE_BASE}.${FLAVOR}.debug"
 
-echo "$DEVICES" | while read device; do
+for device in "${DEVICES[@]}"; do
     echo -e "${YELLOW}Launching on $device...${NC}"
     if adb -s "$device" shell am start -n "$PACKAGE_NAME/com.mindwars.app.MainActivity" > /dev/null 2>&1; then
         echo -e "${GREEN}✓ App launched${NC}"
@@ -141,9 +183,54 @@ echo -e "${BLUE}═════════════════════�
 echo -e "${GREEN}✓ Deployment complete!${NC}"
 echo -e "${BLUE}═══════════════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "${YELLOW}Watching device logs...${NC}"
-echo "Press Ctrl+C to stop watching logs"
-echo ""
 
-# Optional: Show logs from all devices
-adb logcat -s flutter 2>/dev/null || true
+# Step 6: Open per-device log terminals
+echo -e "${BLUE}[6/6] Opening per-device log terminals...${NC}"
+
+if command -v tmux &> /dev/null; then
+    # Kill any existing mindwars-logs session
+    tmux kill-session -t mindwars-logs 2>/dev/null || true
+
+    # Create new session with first device's logs
+    FIRST_DEVICE="${DEVICES[0]}"
+    tmux new-session -d -s mindwars-logs -x 200 -y 50
+    tmux send-keys -t mindwars-logs "adb -s $FIRST_DEVICE logcat -s flutter" Enter
+    tmux set-option -t mindwars-logs -p pane-border-status top
+    tmux set-option -t mindwars-logs pane-border-format "[#{pane_index}] Device: $FIRST_DEVICE"
+
+    # Create additional panes for remaining devices
+    for ((i = 1; i < ${#DEVICES[@]}; i++)); do
+        DEVICE="${DEVICES[$i]}"
+        tmux split-window -h -t mindwars-logs -p 50
+        tmux send-keys -t mindwars-logs "adb -s $DEVICE logcat -s flutter" Enter
+        tmux set-option -t mindwars-logs pane-border-format "[#{pane_index}] Device: $DEVICE"
+        tmux select-layout -t mindwars-logs tiled
+    done
+
+    # Attach to session
+    echo -e "${GREEN}✓ Log terminals opened in tmux session 'mindwars-logs'${NC}"
+    echo -e "${YELLOW}Attached automatically to session...${NC}"
+    echo ""
+    echo -e "${CYAN}Controls:${NC}"
+    echo -e "  Ctrl+B D      — detach from tmux"
+    echo -e "  Ctrl+B Arrow  — switch panes"
+    echo -e "  Ctrl+C (in a pane) — stop logcat for that device"
+    echo ""
+    tmux attach-session -t mindwars-logs
+else
+    # Fallback: launch logcat in background with labeled output
+    echo -e "${YELLOW}⚠ tmux not found. Launching logs in background with device labels...${NC}"
+    echo ""
+
+    for device in "${DEVICES[@]}"; do
+        adb -s "$device" logcat -s flutter 2>/dev/null | sed "s/^/[${device}] /" &
+    done
+
+    echo -e "${GREEN}✓ Device logs streaming in background${NC}"
+    echo -e "${YELLOW}Each line is prefixed with [DEVICE_SERIAL] for identification${NC}"
+    echo -e "${YELLOW}Press Ctrl+C to stop all streams${NC}"
+    echo ""
+
+    # Wait indefinitely for Ctrl+C
+    wait
+fi
