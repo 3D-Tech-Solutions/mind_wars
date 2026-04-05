@@ -2,6 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const { query } = require('../utils/database');
 const { createLogger } = require('../utils/logger');
 const rotationMasterPayload = require('../utils/rotationMasterPayload');
+const pathFinderPayload = require('../utils/pathFinderPayload');
 
 const logger = createLogger('lobby-handlers');
 
@@ -758,6 +759,15 @@ module.exports = (io, socket) => {
         if (vote.game_id === 'rotation_master') {
           gameSlot.state = {
             challengeSet: rotationMasterPayload.generateBattleChallengeSet({
+              battleSeed: gameSlot.seed,
+              gameIndex,
+              difficulty: lobby.difficulty,
+              hintPolicy: lobby.hint_policy,
+            }),
+          };
+        } else if (vote.game_id === 'path_finder') {
+          gameSlot.state = {
+            challengeSet: pathFinderPayload.generateBattleChallengeSet({
               battleSeed: gameSlot.seed,
               gameIndex,
               difficulty: lobby.difficulty,

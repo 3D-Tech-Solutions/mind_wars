@@ -27,6 +27,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
   bool _isSubmitting = false;
   bool _localGameCompleted = false;
   Map<String, dynamic>? _rotationMasterSubmission;
+  Map<String, dynamic>? _pathFinderSubmission;
 
   @override
   void initState() {
@@ -85,7 +86,8 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
 
   Future<void> _submitTurn() async {
     if (_isSubmitting || _currentPlayerId != widget.currentUserId) return;
-    if (widget.game.id == 'rotation_master' && !_localGameCompleted) {
+    if ((widget.game.id == 'rotation_master' || widget.game.id == 'path_finder') &&
+        !_localGameCompleted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Finish the puzzle before submitting.')),
       );
@@ -95,10 +97,12 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      if (widget.game.id == 'rotation_master') {
-        final submission = _rotationMasterSubmission;
+      if (widget.game.id == 'rotation_master' || widget.game.id == 'path_finder') {
+        final submission = widget.game.id == 'rotation_master'
+            ? _rotationMasterSubmission
+            : _pathFinderSubmission;
         if (submission == null) {
-          throw Exception('Rotation Master submission is missing');
+          throw Exception('${widget.game.id} submission is missing');
         }
 
         await widget.multiplayerService.submitGameResult(
@@ -127,7 +131,7 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              widget.game.id == 'rotation_master'
+              widget.game.id == 'rotation_master' || widget.game.id == 'path_finder'
                   ? 'Result submitted!'
                   : 'Turn submitted!',
             ),
@@ -186,6 +190,15 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
           difficulty: widget.game.difficulty ?? 'medium',
           challengeSet: (_gameState['challengeSet'] as Map?)?.cast<String, dynamic>(),
           onSubmissionReady: _onRotationMasterSubmissionReady,
+        );
+      case 'path_finder':
+        return PathFinderGame(
+          onGameComplete: _onPathFinderComplete,
+          onScoreUpdate: _onPathFinderScoreUpdate,
+          seed: widget.game.seed ?? 'default_seed',
+          difficulty: widget.game.difficulty ?? 'medium',
+          challengeSet: (_gameState['challengeSet'] as Map?)?.cast<String, dynamic>(),
+          onSubmissionReady: _onPathFinderSubmissionReady,
         );
       default:
         return Center(
@@ -260,6 +273,44 @@ class _MultiplayerGameScreenState extends State<MultiplayerGameScreen> {
     if (!mounted) return;
     setState(() {
       _rotationMasterSubmission = submission;
+    });
+  }
+
+  void _onPathFinderScoreUpdate(int score) {
+    if (!mounted) return;
+    setState(() {
+      _gameState = {
+        ..._gameState,
+        'score': score,
+      };
+      _playerScores = {
+        ..._playerScores,
+        widget.currentUserId: score,
+      };
+    });
+  }
+
+  void _onPathFinderComplete(int finalScore) {
+    if (!mounted) return;
+    setState(() {
+      _localGameCompleted = true;
+      _gameState = {
+        ..._gameState,
+        'score': finalScore,
+        'completed': true,
+        'completedAt': DateTime.now().toIso8601String(),
+      };
+      _playerScores = {
+        ..._playerScores,
+        widget.currentUserId: finalScore,
+      };
+    });
+  }
+
+  void _onPathFinderSubmissionReady(Map<String, dynamic> submission) {
+    if (!mounted) return;
+    setState(() {
+      _pathFinderSubmission = submission;
     });
   }
 

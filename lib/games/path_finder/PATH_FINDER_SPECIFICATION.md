@@ -2,9 +2,9 @@
 
 ## Overview
 
-Path Finder is a spatial navigation puzzle game where players must navigate from a start position to a goal position while collecting cargo boxes in a deterministically-generated maze. All players in a Mind War receive identical mazes through **deterministic RNG seeding**, ensuring fair competitive gameplay without server-side rendering.
+Path Finder is a spatial navigation puzzle game where players must navigate from a start position to a goal position while collecting cargo boxes in a deterministically-generated maze. All players in a Mind War receive identical mazes through a **sealed payload architecture**: the backend generates one canonical maze payload, clients render only the declared integer cell coordinates, and the server replays the submitted move transcript before accepting the score.
 
-**Critical Feature**: Pixel-perfect cloned mazes across all devices using the same `battleSeed` and `gameIndex`.
+**Critical Feature**: Exact same puzzle creation on Android, iOS, and the backend from the same `battleSeed`, `gameIndex`, and schema version.
 
 ---
 
@@ -13,15 +13,15 @@ Path Finder is a spatial navigation puzzle game where players must navigate from
 ### Key Components
 
 1. **PathFinderEngine** (`path_finder_engine.dart`)
-   - Deterministic maze generation
-   - BFS-based solvability validation
-   - Fitness scoring system
-   - Anti-cheat verification
+   - Deterministic sealed challenge generation
+   - Cargo-aware BFS solvability validation
+   - Canonical checksum + submission hashing
+   - Replayable score verification
 
 2. **GameGeneratorService** Integration
    - Entry point: `generateGameState(gameId: 'path_finder', ...)`
-   - Calls `PathFinderEngine.generateBattleChallenge()`
-   - Returns complete puzzle data for UI rendering
+   - Calls `PathFinderEngine.generateBattleChallengeSet()`
+   - Returns a `challengeSet` for UI rendering
 
 ---
 
@@ -147,7 +147,7 @@ Algorithm: BFS(start, goal)
 
 **Valid Cell**: Must be within bounds AND not a wall (can be empty, cargo, start, or goal).
 
-**Regeneration**: If maze is not solvable, recursively call `generateBattleChallenge(gameIndex+1)` to retry. (In practice, this almost never triggers with current parameters.)
+**Wall Validation Rule**: Candidate walls are only kept if the maze remains solvable for the full cargo-collection route. The deterministic identity never changes by mutating `gameIndex`.
 
 ---
 
@@ -351,9 +351,7 @@ generateGameState(
   difficulty: 'medium',
   hintPolicy: 'enabled'
 ) {
-  final random = Random(seed.hashCode + gameIndex);
-  
-  return PathFinderEngine.generateBattleChallenge(
+  return PathFinderEngine.generateBattleChallengeSet(
     battleSeed: seed,
     gameIndex: gameIndex,
     difficulty: difficulty,
@@ -362,50 +360,49 @@ generateGameState(
 }
 ```
 
-**Key Property**: Same `seed` + `gameIndex` on all devices → **identical maze generation**.
+**Key Property**: Same `seed` + `gameIndex` on all devices and on the backend → **identical sealed maze payload**.
 
 ---
 
 ## Output Format
 
-The `generateBattleChallenge()` method returns:
+The `generateBattleChallengeSet()` method returns:
 
 ```dart
 {
+  'schemaVersion': 2,
   'type': 'path_finder',
-  'gameIndex': 42847,
-  'seed': 'base_seed_1_42847',
+  'challengeKey': 'path_finder|base_seed_1_42847|index:42847|difficulty:medium|hint:enabled|schema:2',
   'difficulty': 'medium',
-  'hintPolicy': 'enabled',
-  'grid': [
-    [2, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0],  // row 0
-    [0, 1, 0, 1, 0, 1, 4, 0, 1, 1, 0, 0, 1, 0, 1, 0],  // row 1
-    // ... 14 more rows
-  ],
-  'playerStart': {'x': 0, 'y': 0},
-  'goal': {'x': 15, 'y': 15},
-  'cargoBoxes': [
+  'gridWidth': 16,
+  'gridHeight': 16,
+  'startCell': {'x': 0, 'y': 0},
+  'goalCell': {'x': 15, 'y': 15},
+  'cargoCells': [
     {'x': 6, 'y': 1},
     {'x': 12, 'y': 5},
     {'x': 8, 'y': 12}
   ],
+  'wallCells': [
+    {'x': 1, 'y': 0},
+    {'x': 3, 'y': 0}
+  ],
   'wallCount': 24,
   'cargoCount': 3,
-  'mazeHash': '7f3a4e8b2c1d9f6e5a3b4c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e',
-  'optimalPathLength': 28,
-  'optimalCornerCount': 11,
-  'fitnessScore': 87.5,
-  'fitnessMetrics': {
-    'pathLength': 28,
-    'cornerCount': 11,
-    'emptySpaces': 182,
-    'cargoDensity': '0.035',
-    'pathScore': 100.0,
-    'cornerScore': 88.0,
-    'spaceScore': 90.0,
-    'cargoScore': 70.0
+  'optimalMoveCount': 28,
+  'optimalPathCells': [
+    {'x': 0, 'y': 0},
+    {'x': 0, 'y': 1}
+  ],
+  'drawable': {
+    'viewBox': {'width': 16, 'height': 16},
+    'cellSize': 1,
+    'walls': [...],
+    'cargo': [...],
+    'start': {'x': 0, 'y': 0},
+    'goal': {'x': 15, 'y': 15}
   },
-  'startTime': 1712343600000
+  'canonicalChecksum': '7f3a4e8b2c1d9f6e5a3b4c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e'
 }
 ```
 
@@ -423,11 +420,11 @@ The `generateBattleChallenge()` method returns:
 2. Client receives payload
    ├─ Calls GameGeneratorService.generateGameState()
    ├─ With gameId='path_finder', seed, gameIndex
-   └─ PathFinderEngine generates identical maze
+   └─ PathFinderEngine returns identical sealed challengeSet
 
 3. Player navigates maze
-   ├─ Submits path when complete
-   └─ Includes mazeHash for verification
+   ├─ Submits a move transcript when complete
+   └─ Includes challenge checksum + submission hash for verification
 
 4. Server validates submission
    ├─ Verifies mazeHash matches expected

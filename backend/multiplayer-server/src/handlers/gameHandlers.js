@@ -1,6 +1,7 @@
 const { query } = require('../utils/database');
 const { createLogger } = require('../utils/logger');
 const rotationMasterPayload = require('../utils/rotationMasterPayload');
+const pathFinderPayload = require('../utils/pathFinderPayload');
 
 const logger = createLogger('game-handlers');
 
@@ -230,6 +231,37 @@ module.exports = (io, socket) => {
 
         if (!verification.valid) {
           logger.warn(`[submit-game-result] Rotation Master verification failed: ${verification.error}`);
+          return callback({ success: false, error: verification.error });
+        }
+
+        validatedScore = verification.validatedScore;
+        validatedTimeTaken = verification.totalTimeMs;
+        validatedHintsUsed = verification.hintsUsed;
+        validatedPerfect = verification.perfect;
+      } else if (gameId === 'path_finder') {
+        const payloadResult = await query(
+          `SELECT game_sequence FROM mind_war_payloads WHERE lobby_id = $1`,
+          [lobbyId]
+        );
+
+        if (payloadResult.rows.length === 0) {
+          return callback({ success: false, error: 'Game payload not found' });
+        }
+
+        const payload = JSON.parse(payloadResult.rows[0].game_sequence);
+        const currentGameSlot = (payload.gameSequence || []).find((slot) => slot.roundNumber === roundNumber);
+
+        if (!currentGameSlot || !currentGameSlot.state || !currentGameSlot.state.challengeSet) {
+          return callback({ success: false, error: 'Path Finder payload missing challenge set' });
+        }
+
+        const verification = pathFinderPayload.verifySubmission({
+          challengeSet: currentGameSlot.state.challengeSet,
+          submission: gameData,
+        });
+
+        if (!verification.valid) {
+          logger.warn(`[submit-game-result] Path Finder verification failed: ${verification.error}`);
           return callback({ success: false, error: verification.error });
         }
 

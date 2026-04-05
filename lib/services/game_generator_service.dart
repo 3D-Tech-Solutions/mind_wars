@@ -300,12 +300,24 @@ class GameGeneratorService {
     String hintPolicy,
     int gameIndex,
   ) {
-    return PathFinderEngine.generateBattleChallenge(
+    final challengeSet = PathFinderEngine.generateBattleChallengeSet(
       battleSeed: battleSeed,
       gameIndex: gameIndex,
       difficulty: difficulty,
       hintPolicy: hintPolicy,
     );
+
+    return {
+      'type': 'path_finder',
+      'gameIndex': gameIndex,
+      'seed': battleSeed,
+      'difficulty': difficulty,
+      'hintPolicy': hintPolicy,
+      'challengeSet': challengeSet,
+      'moveCount': 0,
+      'completed': false,
+      'startTime': DateTime.now().millisecondsSinceEpoch,
+    };
   }
 
   // ============================================================================

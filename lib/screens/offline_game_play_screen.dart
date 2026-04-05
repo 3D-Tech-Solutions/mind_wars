@@ -219,6 +219,8 @@ class _OfflineGamePlayScreenState extends State<OfflineGamePlayScreen> {
         return PathFinderGame(
           onGameComplete: _onGameComplete,
           onScoreUpdate: _onScoreUpdate,
+          seed: '${widget.gameTemplate.id}_single_player_v1',
+          difficulty: 'medium',
         );
       
       // Language Games
