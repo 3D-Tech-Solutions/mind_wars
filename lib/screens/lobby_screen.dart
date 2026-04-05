@@ -3,6 +3,7 @@
  * Main lobby view with player list, host controls, and presence tracking
  */
 
+import 'dart:math' as Math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/models.dart';
@@ -35,11 +36,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
   bool _isLoading = true;
   bool _skipLeaveLobbyConfirmation = false;
   final Map<String, bool> _typingPlayers = {};
+  late final TextEditingController _chatController;
 
   @override
   void initState() {
     super.initState();
-    
+    _chatController = TextEditingController();
+
     try {
       _lobby = widget.multiplayerService.currentLobby;
       _setupEventListeners();
@@ -61,6 +64,12 @@ class _LobbyScreenState extends State<LobbyScreen> {
         }
       });
     }
+  }
+
+  @override
+  void dispose() {
+    _chatController.dispose();
+    super.dispose();
   }
 
   void _setupEventListeners() {
@@ -505,6 +514,313 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
   }
 
+  // Theme colors for admin view
+  static const Color _void = Color(0xFF090A12);
+  static const Color _cyan = Color(0xFF00D4FF);
+  static const Color _coral = Color(0xFFE94560);
+  static const Color _gold = Color(0xFFFFD700);
+  static const Color _surface = Color(0xFF141523);
+  static const Color _surfaceAlt = Color(0xFF1C1E2E);
+
+  Widget _buildAdminView() {
+    return Scaffold(
+      backgroundColor: _void,
+      appBar: AppBar(
+        title: Text('⚔ ${_lobby!.name}'),
+        backgroundColor: _void,
+        elevation: 1,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: _navigateToSettings,
+            tooltip: 'Settings',
+          ),
+          IconButton(
+            icon: const Icon(Icons.mail_outline),
+            onPressed: () => _showSnackBar('View Invites'),
+            tooltip: 'Invites',
+          ),
+          IconButton(
+            icon: const Icon(Icons.assessment),
+            onPressed: () => _showSnackBar('View Team Stats'),
+            tooltip: 'Team Stats',
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // Hexagonal background pattern
+          _buildHexagonBackground(),
+          // Main content
+          SafeArea(
+            child: Column(
+              children: [
+                // Admin action bar
+                _buildAdminActionBar(),
+                const SizedBox(height: 16),
+                // Player roster
+                _buildPlayerRoster(),
+                const SizedBox(height: 16),
+                // Chat log (expanded)
+                Expanded(
+                  child: _buildChatLog(),
+                ),
+                const SizedBox(height: 12),
+                // Chat input
+                _buildChatInput(),
+                const SizedBox(height: 8),
+                // Footer status bar
+                _buildFooterStatusBar(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHexagonBackground() {
+    return Positioned.fill(
+      child: CustomPaint(
+        painter: HexagonalGridPainter(
+          cellSize: 48,
+          strokeColor: _cyan.withOpacity(0.05),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAdminActionBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.star, size: 18),
+              label: const Text('START MIND WAR'),
+              onPressed: _startVoting,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _cyan,
+                foregroundColor: _void,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: ElevatedButton.icon(
+              icon: const Icon(Icons.close, size: 18),
+              label: const Text('CLOSE LOBBY'),
+              onPressed: _closeLobby,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _coral,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayerRoster() {
+    return SizedBox(
+      height: 100,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: _lobby!.players.length,
+        itemBuilder: (context, index) {
+          final player = _lobby!.players[index];
+          return Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: _buildPlayerRosterCard(player),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildPlayerRosterCard(Player player) {
+    final isActive = player.status == PlayerStatus.active;
+    final borderColor = isActive ? _cyan : Colors.grey[600]!;
+
+    return SizedBox(
+      width: 80,
+      child: Column(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            decoration: BoxDecoration(
+              border: Border.all(color: borderColor, width: 2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: BrandedAvatar(user: player, size: 60),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            player.username,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, color: Colors.white70),
+          ),
+          const SizedBox(height: 2),
+          if (isActive)
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.check_circle, size: 12, color: _cyan),
+                SizedBox(width: 2),
+                Text('Active', style: TextStyle(fontSize: 9, color: _cyan)),
+              ],
+            )
+          else
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.grey),
+                  ),
+                ),
+                SizedBox(width: 2),
+                Text('Waiting', style: TextStyle(fontSize: 9, color: Colors.grey)),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatLog() {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      decoration: BoxDecoration(
+        color: _surfaceAlt.withOpacity(0.5),
+        border: Border.all(color: _cyan.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          // Placeholder chat log
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(12),
+              children: [
+                _buildSystemMessage('💬 Lobby opened by ${_lobby!.players.firstWhere((p) => p.id == _lobby!.hostId, orElse: () => _lobby!.players.first).username}'),
+                const SizedBox(height: 8),
+                _buildSystemMessage('✓ War configuration locked'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSystemMessage(String text) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          const Icon(Icons.hexagon, size: 14, color: Colors.grey),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 12,
+                color: Colors.grey,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatInput() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _chatController,
+              decoration: InputDecoration(
+                hintText: 'Message...',
+                hintStyle: TextStyle(color: Colors.grey[500]),
+                filled: true,
+                fillColor: _surface,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(color: _cyan.withOpacity(0.2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide(color: _cyan.withOpacity(0.2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: const BorderSide(color: _cyan),
+                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              ),
+              style: const TextStyle(color: Colors.white),
+              maxLines: 1,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            decoration: BoxDecoration(
+              color: _cyan,
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.send, size: 18),
+              color: _void,
+              onPressed: () {
+                if (_chatController.text.isNotEmpty) {
+                  _showSnackBar('Message sent: ${_chatController.text}');
+                  _chatController.clear();
+                }
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFooterStatusBar() {
+    final maxPlayers = _lobby!.maxPlayers ?? 0;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(
+        color: _surface,
+        border: Border(top: BorderSide(color: _cyan.withOpacity(0.2))),
+      ),
+      child: Text(
+        'Lobby Status: Active | Max Players: ${maxPlayers > 0 ? maxPlayers : 'Unlimited'} | Admin: You',
+        style: const TextStyle(fontSize: 11, color: Colors.grey),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading || _lobby == null) {
@@ -514,6 +830,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
     }
 
     final isHost = _lobby!.isHost(widget.currentUserId);
+
+    if (isHost) {
+      return _buildAdminView();
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -813,4 +1133,53 @@ class _LobbyScreenState extends State<LobbyScreen> {
       ),
     );
   }
+}
+
+/// Hexagonal grid background painter for admin view
+class HexagonalGridPainter extends CustomPainter {
+  final double cellSize;
+  final Color strokeColor;
+
+  HexagonalGridPainter({
+    required this.cellSize,
+    required this.strokeColor,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = strokeColor
+      ..strokeWidth = 0.5
+      ..style = PaintingStyle.stroke;
+
+    final width = size.width;
+    final height = size.height;
+
+    // Draw hexagonal grid pattern
+    for (double y = 0; y < height; y += cellSize * 0.75) {
+      for (double x = 0; x < width; x += cellSize) {
+        final offsetX = (y / (cellSize * 0.75)).toInt() % 2 == 1 ? cellSize / 2 : 0;
+        _drawHexagon(canvas, paint, x + offsetX, y, cellSize / 2);
+      }
+    }
+  }
+
+  void _drawHexagon(Canvas canvas, Paint paint, double x, double y, double radius) {
+    final path = Path();
+    for (int i = 0; i < 6; i++) {
+      final angle = (i * 60 - 30) * 3.14159 / 180;
+      final px = x + radius * Math.cos(angle);
+      final py = y + radius * Math.sin(angle);
+      if (i == 0) {
+        path.moveTo(px, py);
+      } else {
+        path.lineTo(px, py);
+      }
+    }
+    path.close();
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(HexagonalGridPainter oldDelegate) => false;
 }
