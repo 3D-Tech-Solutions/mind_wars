@@ -2,6 +2,8 @@
 
 This guide is the handoff contract for any team building or upgrading a Mind Wars game for fair competitive play.
 
+For the platform-wide async and offline-first lifecycle that every game must follow, read [Async Game Contract](ASYNC_GAME_CONTRACT.md) first. This guide focuses specifically on sealed challenge generation and verification.
+
 ## Goal
 
 Every player in the same Mind War must receive and play the exact same puzzle package, with server-verifiable results.
@@ -15,8 +17,9 @@ Each competitive game must use a **sealed payload** with these properties:
 1. The backend generates the canonical challenge during payload lock.
 2. The payload stores explicit puzzle primitives, not just a seed.
 3. The client renders from that payload without mutating puzzle content.
-4. The client submits a compact result transcript plus a canonical hash.
-5. The server replays or verifies the transcript against the same payload.
+4. The client may persist local `progressSnapshot` state, but never mutate the canonical challenge content.
+5. The client submits a compact result transcript plus a canonical hash.
+6. The server replays or verifies the transcript against the same payload.
 
 ## What To Put In The Payload
 

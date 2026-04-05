@@ -247,8 +247,8 @@ class GameCatalog {
       name: template.name,
       category: template.category,
       description: template.description,
-      minPlayers: 2,  // Minimum 2 players for multiplayer
-      maxPlayers: 10,  // Maximum 10 players per lobby
+      minPlayers: 2,  // Minimum 2 players for a Mind War
+      maxPlayers: players.length,  // This game instance reflects the actual roster already in the Mind War
       currentTurn: 0,
       currentPlayerId: players.first,
       state: _initializeGameState(template.id, players),

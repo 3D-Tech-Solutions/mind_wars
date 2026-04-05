@@ -17,6 +17,141 @@ function generateLobbyCode() {
   return code;
 }
 
+function normalizeMaxPlayers(value) {
+  if (value === null || value === undefined || value === 0 || value === '0') {
+    return 0;
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 2) {
+    throw new Error('Max players must be at least 2 when a cap is set');
+  }
+
+  return parsed;
+}
+
+function publicMaxPlayers(value) {
+  return value && value > 0 ? value : null;
+}
+
+function serializePlayer(row) {
+  return {
+    id: row.id,
+    username: row.username || row.display_name,
+    displayName: row.display_name,
+    avatar: row.avatar_url,
+    avatarUrl: row.avatar_url,
+    status: row.status || 'active',
+    score: row.score || 0,
+    streak: row.streak || 0,
+    badges: row.badges || [],
+    lastActive: (row.last_active || new Date()).toISOString(),
+    level: row.level || 1,
+  };
+}
+
+async function fetchLobbyPlayers(lobbyId) {
+  const result = await query(
+    `SELECT u.id,
+            u.username,
+            u.display_name,
+            u.avatar_url,
+            u.level,
+            u.total_score AS score,
+            u.current_streak AS streak,
+            '[]'::json AS badges,
+            COALESCE(lp.status, 'joined') AS status,
+            lp.joined_at AS last_active
+     FROM lobby_players lp
+     JOIN users u ON u.id = lp.user_id
+     WHERE lp.lobby_id = $1
+     ORDER BY lp.joined_at ASC`,
+    [lobbyId]
+  );
+
+  return result.rows.map(serializePlayer);
+}
+
+async function serializeLobby(lobby) {
+  const players = await fetchLobbyPlayers(lobby.id);
+  return {
+    id: lobby.id,
+    code: lobby.code,
+    name: lobby.name,
+    hostId: lobby.host_id,
+    players,
+    maxPlayers: publicMaxPlayers(lobby.max_players),
+    playerCount: players.length,
+    isPrivate: lobby.is_private,
+    status: lobby.status,
+    currentRound: lobby.current_round,
+    totalRounds: lobby.total_rounds,
+    votingPointsPerPlayer: lobby.voting_points_per_player,
+    skipRule: lobby.skip_rule || 'majority',
+    skipTimeLimitHours: lobby.skip_time_limit_hours || 24,
+    createdAt: lobby.created_at,
+    difficulty: lobby.difficulty || 'medium',
+    hintPolicy: lobby.hint_policy || 'enabled',
+    ranked: lobby.ranked || false,
+    payloadLocked: lobby.payload_locked || false,
+  };
+}
+
+async function getPlayerLobbyParticipation(userId, excludeLobbyId = null) {
+  const planningResult = await query(
+    `SELECT COUNT(*) AS planning_count
+     FROM lobby_players lp
+     JOIN lobbies l ON l.id = lp.lobby_id
+     WHERE lp.user_id = $1
+       AND l.status = 'waiting'
+       AND ($2::uuid IS NULL OR l.id != $2)`,
+    [userId, excludeLobbyId]
+  );
+
+  const activeWarsResult = await query(
+    `SELECT COUNT(*) AS active_count
+     FROM lobby_players lp
+     JOIN lobbies l ON l.id = lp.lobby_id
+     WHERE lp.user_id = $1
+       AND l.status = 'playing'
+       AND ($2::uuid IS NULL OR l.id != $2)`,
+    [userId, excludeLobbyId]
+  );
+
+  return {
+    planningCount: parseInt(planningResult.rows[0].planning_count, 10),
+    activeCount: parseInt(activeWarsResult.rows[0].active_count, 10),
+  };
+}
+
+async function getPreferredPlanningLobby(userId) {
+  const result = await query(
+    `SELECT l.*,
+            (SELECT COUNT(*) FROM lobby_players WHERE lobby_id = l.id) AS player_count
+     FROM lobby_players lp
+     JOIN lobbies l ON l.id = lp.lobby_id
+     WHERE lp.user_id = $1
+       AND l.status = 'waiting'
+     ORDER BY
+       (SELECT COUNT(*) FROM lobby_players WHERE lobby_id = l.id) DESC,
+       l.created_at DESC
+     LIMIT 1`,
+    [userId]
+  );
+
+  return result.rows[0] || null;
+}
+
+function emitSystemChatNotice(io, lobbyId, message) {
+  io.to(`lobby:${lobbyId}`).emit('chat-message', {
+    id: `system_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    senderId: 'system',
+    senderName: 'Mind Wars',
+    message,
+    timestamp: new Date().toISOString(),
+  });
+}
+
 module.exports = (io, socket) => {
   // Create lobby
   socket.on('create-lobby', async (data, callback) => {
@@ -27,24 +162,51 @@ module.exports = (io, socket) => {
 
       const {
         name,
-        maxPlayers = 10,
+        maxPlayers = 0,
         isPrivate = true,
         totalRounds = 3,
         votingPointsPerPlayer = 10
       } = data;
+      const normalizedMaxPlayers = normalizeMaxPlayers(maxPlayers);
 
-      logger.info(`[create-lobby] Parsed: name=${name}, maxPlayers=${maxPlayers}, totalRounds=${totalRounds}`);
+      logger.info(`[create-lobby] Parsed: name=${name}, maxPlayers=${normalizedMaxPlayers || 'open'}, totalRounds=${totalRounds}`);
 
       const lobbyId = uuidv4();
       const code = generateLobbyCode();
       logger.info(`[create-lobby] Generated code: ${code}, lobbyId: ${lobbyId}`);
+
+      const participation = await getPlayerLobbyParticipation(socket.userId);
+      if (participation.planningCount > 0) {
+        const existingLobby = await getPreferredPlanningLobby(socket.userId);
+        if (existingLobby) {
+          socket.join(`lobby:${existingLobby.id}`);
+          return callback({
+            success: true,
+            resumedExisting: true,
+            message: 'Resuming your existing planning lobby.',
+            lobby: await serializeLobby(existingLobby),
+          });
+        }
+
+        return callback({
+          success: false,
+          error: 'You can only be in one planning lobby at a time. Leave your current waiting lobby before creating another.',
+        });
+      }
+
+      if (participation.activeCount >= 10) {
+        return callback({
+          success: false,
+          error: 'You are already in 10 active Mind Wars. Finish or leave one before creating another.',
+        });
+      }
 
       // Create lobby in database
       await query(
         `INSERT INTO lobbies (id, code, name, host_id, max_players, is_private, status,
                               current_round, total_rounds, voting_points_per_player, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, 'waiting', 1, $7, $8, NOW())`,
-        [lobbyId, code, name, socket.userId, maxPlayers, isPrivate, totalRounds, votingPointsPerPlayer]
+        [lobbyId, code, name, socket.userId, normalizedMaxPlayers, isPrivate, totalRounds, votingPointsPerPlayer]
       );
 
       // Add host as player
@@ -61,20 +223,21 @@ module.exports = (io, socket) => {
 
       const response = {
         success: true,
-        lobby: {
+        lobby: await serializeLobby({
           id: lobbyId,
           code,
           name,
-          hostId: socket.userId,
-          maxPlayers,
-          isPrivate,
+          host_id: socket.userId,
+          max_players: normalizedMaxPlayers,
+          is_private: isPrivate,
           status: 'waiting',
-          currentRound: 1,
-          totalRounds,
-          votingPointsPerPlayer,
-          skipRule: 'majority',  // Default skip rule
-          skipTimeLimitHours: 24  // Default time limit
-        }
+          current_round: 1,
+          total_rounds: totalRounds,
+          voting_points_per_player: votingPointsPerPlayer,
+          skip_rule: 'majority',
+          skip_time_limit_hours: 24,
+          player_count: 1,
+        })
       };
 
       logger.info(`[create-lobby] Sending callback response to client`);
@@ -111,15 +274,6 @@ module.exports = (io, socket) => {
 
       const lobby = lobbyResult.rows[0];
 
-      if (parseInt(lobby.player_count) >= lobby.max_players) {
-        return callback({ success: false, error: 'Lobby is full' });
-      }
-
-      if (lobby.status !== 'waiting') {
-        return callback({ success: false, error: 'Lobby has already started' });
-      }
-
-      // Check if user already in lobby
       const existingPlayer = await query(
         `SELECT id FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
         [lobbyId, socket.userId]
@@ -127,7 +281,45 @@ module.exports = (io, socket) => {
 
       if (existingPlayer.rows.length > 0) {
         socket.join(`lobby:${lobbyId}`);
-        return callback({ success: true, message: 'Already in lobby' });
+        return callback({
+          success: true,
+          message: 'Already in lobby',
+          lobby: await serializeLobby(lobby),
+        });
+      }
+
+      if (lobby.max_players > 0 && parseInt(lobby.player_count) >= lobby.max_players) {
+        return callback({ success: false, error: 'Lobby is full' });
+      }
+
+      if (lobby.status !== 'waiting') {
+        return callback({ success: false, error: 'Lobby has already started' });
+      }
+
+      const participation = await getPlayerLobbyParticipation(socket.userId);
+      if (participation.planningCount > 0) {
+        const existingLobby = await getPreferredPlanningLobby(socket.userId);
+        if (existingLobby) {
+          socket.join(`lobby:${existingLobby.id}`);
+          return callback({
+            success: true,
+            resumedExisting: true,
+            message: 'Resuming your existing planning lobby.',
+            lobby: await serializeLobby(existingLobby),
+          });
+        }
+
+        return callback({
+          success: false,
+          error: 'You can only be in one planning lobby at a time. Leave your current waiting lobby before joining another.',
+        });
+      }
+
+      if (participation.activeCount >= 10) {
+        return callback({
+          success: false,
+          error: 'You are already in 10 active Mind Wars. Finish or leave one before joining another.',
+        });
       }
 
       // Add player to lobby
@@ -142,7 +334,7 @@ module.exports = (io, socket) => {
 
       // Get user info
       const userResult = await query(
-        `SELECT display_name, avatar_url, level FROM users WHERE id = $1`,
+        `SELECT username, display_name, avatar_url, level FROM users WHERE id = $1`,
         [socket.userId]
       );
 
@@ -150,32 +342,31 @@ module.exports = (io, socket) => {
 
       // Notify other players
       socket.to(`lobby:${lobbyId}`).emit('player-joined', {
+        player: serializePlayer({
+          id: socket.userId,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+          level: user.level,
+          status: 'active',
+          score: 0,
+          streak: 0,
+          badges: [],
+          last_active: new Date(),
+        }),
         userId: socket.userId,
         displayName: user.display_name,
         avatarUrl: user.avatar_url,
         level: user.level,
         timestamp: new Date().toISOString()
       });
+      emitSystemChatNotice(io, lobbyId, `${user.display_name} joined the lobby.`);
 
       logger.info(`User ${socket.userId} joined lobby ${lobbyId}`);
 
       callback({
         success: true,
-        lobby: {
-          id: lobby.id,
-          code: lobby.code,
-          name: lobby.name,
-          hostId: lobby.host_id,
-          maxPlayers: lobby.max_players,
-          playerCount: parseInt(lobby.player_count),
-          isPrivate: lobby.is_private,
-          status: lobby.status,
-          currentRound: lobby.current_round,
-          totalRounds: lobby.total_rounds,
-          votingPointsPerPlayer: lobby.voting_points_per_player,
-          skipRule: lobby.skip_rule || 'majority',
-          skipTimeLimitHours: lobby.skip_time_limit_hours || 24
-        }
+        lobby: await serializeLobby(lobby)
       });
     } catch (error) {
       logger.error('Join lobby error', error);
@@ -211,20 +402,6 @@ module.exports = (io, socket) => {
       const lobby = lobbyResult.rows[0];
       logger.info(`[join-lobby-by-code] Found lobby: id=${lobby.id}, name=${lobby.name}, status=${lobby.status}`);
 
-      // Check if lobby exists and has space
-      logger.info(`[join-lobby-by-code] Player count: ${parseInt(lobby.player_count)}, max: ${lobby.max_players}`);
-      if (parseInt(lobby.player_count) >= lobby.max_players) {
-        logger.warn(`[join-lobby-by-code] Lobby is full`);
-        return callback({ success: false, error: 'Lobby is full' });
-      }
-
-      logger.info(`[join-lobby-by-code] Lobby status: ${lobby.status}`);
-      if (lobby.status !== 'waiting') {
-        logger.warn(`[join-lobby-by-code] Lobby has already started`);
-        return callback({ success: false, error: 'Lobby has already started' });
-      }
-
-      // Check if user already in lobby
       logger.info(`[join-lobby-by-code] Checking if user ${socket.userId} is already in lobby ${lobby.id}`);
       const existingPlayer = await query(
         `SELECT id FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
@@ -236,21 +413,46 @@ module.exports = (io, socket) => {
         socket.join(`lobby:${lobby.id}`);
         return callback({
           success: true,
-          lobby: {
-            id: lobby.id,
-            code: lobby.code,
-            name: lobby.name,
-            hostId: lobby.host_id,
-            maxPlayers: lobby.max_players,
-            playerCount: parseInt(lobby.player_count),
-            isPrivate: lobby.is_private,
-            status: lobby.status,
-            currentRound: lobby.current_round,
-            totalRounds: lobby.total_rounds,
-            votingPointsPerPlayer: lobby.voting_points_per_player,
-            skipRule: lobby.skip_rule || 'majority',
-            skipTimeLimitHours: lobby.skip_time_limit_hours || 24
-          }
+          lobby: await serializeLobby(lobby)
+        });
+      }
+
+      // Check if lobby exists and has space
+      logger.info(`[join-lobby-by-code] Player count: ${parseInt(lobby.player_count)}, max: ${lobby.max_players}`);
+      if (lobby.max_players > 0 && parseInt(lobby.player_count) >= lobby.max_players) {
+        logger.warn(`[join-lobby-by-code] Lobby is full`);
+        return callback({ success: false, error: 'Lobby is full' });
+      }
+
+      logger.info(`[join-lobby-by-code] Lobby status: ${lobby.status}`);
+      if (lobby.status !== 'waiting') {
+        logger.warn(`[join-lobby-by-code] Lobby has already started`);
+        return callback({ success: false, error: 'Lobby has already started' });
+      }
+
+      const participation = await getPlayerLobbyParticipation(socket.userId);
+      if (participation.planningCount > 0) {
+        const existingLobby = await getPreferredPlanningLobby(socket.userId);
+        if (existingLobby) {
+          socket.join(`lobby:${existingLobby.id}`);
+          return callback({
+            success: true,
+            resumedExisting: true,
+            message: 'Resuming your existing planning lobby.',
+            lobby: await serializeLobby(existingLobby),
+          });
+        }
+
+        return callback({
+          success: false,
+          error: 'You can only be in one planning lobby at a time. Leave your current waiting lobby before joining another.',
+        });
+      }
+
+      if (participation.activeCount >= 10) {
+        return callback({
+          success: false,
+          error: 'You are already in 10 active Mind Wars. Finish or leave one before joining another.',
         });
       }
 
@@ -270,7 +472,7 @@ module.exports = (io, socket) => {
 
       // Get user info
       const userResult = await query(
-        `SELECT display_name, avatar_url, level FROM users WHERE id = $1`,
+        `SELECT username, display_name, avatar_url, level FROM users WHERE id = $1`,
         [socket.userId]
       );
 
@@ -280,32 +482,31 @@ module.exports = (io, socket) => {
       // Notify other players
       logger.info(`[join-lobby-by-code] Notifying other players in lobby:${lobby.id} about new player`);
       socket.to(`lobby:${lobby.id}`).emit('player-joined', {
+        player: serializePlayer({
+          id: socket.userId,
+          username: user.username,
+          display_name: user.display_name,
+          avatar_url: user.avatar_url,
+          level: user.level,
+          status: 'active',
+          score: 0,
+          streak: 0,
+          badges: [],
+          last_active: new Date(),
+        }),
         userId: socket.userId,
         displayName: user.display_name,
         avatarUrl: user.avatar_url,
         level: user.level,
         timestamp: new Date().toISOString()
       });
+      emitSystemChatNotice(io, lobby.id, `${user.display_name} joined the lobby.`);
 
       logger.info(`[join-lobby-by-code] ✓ User ${socket.userId} successfully joined lobby ${lobby.id} by code ${code}`);
 
       callback({
         success: true,
-        lobby: {
-          id: lobby.id,
-          code: lobby.code,
-          name: lobby.name,
-          hostId: lobby.host_id,
-          maxPlayers: lobby.max_players,
-          playerCount: parseInt(lobby.player_count),
-          isPrivate: lobby.is_private,
-          status: lobby.status,
-          currentRound: lobby.current_round,
-          totalRounds: lobby.total_rounds,
-          votingPointsPerPlayer: lobby.voting_points_per_player,
-          skipRule: lobby.skip_rule || 'majority',
-          skipTimeLimitHours: lobby.skip_time_limit_hours || 24
-        }
+        lobby: await serializeLobby(lobby)
       });
     } catch (error) {
       logger.error('Join lobby by code error', error);
@@ -318,6 +519,12 @@ module.exports = (io, socket) => {
     try {
       const { lobbyId } = data;
 
+      const leavingUserResult = await query(
+        `SELECT username, display_name, avatar_url FROM users WHERE id = $1`,
+        [socket.userId]
+      );
+      const leavingUser = leavingUserResult.rows[0];
+
       // Remove player from lobby
       await query(
         `DELETE FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
@@ -329,9 +536,44 @@ module.exports = (io, socket) => {
 
       // Notify other players
       socket.to(`lobby:${lobbyId}`).emit('player-left', {
+        playerId: socket.userId,
         userId: socket.userId,
+        username: leavingUser?.username,
+        displayName: leavingUser?.display_name,
+        avatarUrl: leavingUser?.avatar_url,
         timestamp: new Date().toISOString()
       });
+      emitSystemChatNotice(io, lobbyId, `${leavingUser?.display_name || leavingUser?.username || 'A player'} left the lobby.`);
+
+      const remainingPlayersResult = await query(
+        `SELECT user_id, joined_at
+         FROM lobby_players
+         WHERE lobby_id = $1
+         ORDER BY joined_at ASC`,
+        [lobbyId]
+      );
+
+      if (remainingPlayersResult.rows.length === 0) {
+        await query(`DELETE FROM lobbies WHERE id = $1 AND status = 'waiting'`, [lobbyId]);
+      } else {
+        const lobbyResult = await query(
+          `SELECT host_id, status FROM lobbies WHERE id = $1`,
+          [lobbyId]
+        );
+
+        const lobby = lobbyResult.rows[0];
+        if (lobby && lobby.status === 'waiting' && lobby.host_id === socket.userId) {
+          const nextHostId = remainingPlayersResult.rows[0].user_id;
+          await query(`UPDATE lobbies SET host_id = $1 WHERE id = $2`, [nextHostId, lobbyId]);
+
+          io.to(`lobby:${lobbyId}`).emit('host-changed', {
+            lobbyId,
+            hostId: nextHostId,
+            timestamp: new Date().toISOString()
+          });
+          emitSystemChatNotice(io, lobbyId, 'Host changed for this lobby.');
+        }
+      }
 
       logger.info(`User ${socket.userId} left lobby ${lobbyId}`);
 
@@ -361,6 +603,12 @@ module.exports = (io, socket) => {
         return callback({ success: false, error: 'Only host can kick players' });
       }
 
+      const playerResult = await query(
+        `SELECT username, display_name FROM users WHERE id = $1`,
+        [userId]
+      );
+      const kickedUser = playerResult.rows[0];
+
       // Remove player
       await query(
         `DELETE FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
@@ -376,7 +624,10 @@ module.exports = (io, socket) => {
 
       // Notify other players
       socket.to(`lobby:${lobbyId}`).emit('player-kicked', {
+        playerId: userId,
         userId,
+        username: kickedUser?.username,
+        displayName: kickedUser?.display_name,
         timestamp: new Date().toISOString()
       });
 
@@ -414,10 +665,17 @@ module.exports = (io, socket) => {
         [newHostId, lobbyId]
       );
 
+      const newHostResult = await query(
+        `SELECT username, display_name FROM users WHERE id = $1`,
+        [newHostId]
+      );
+      const newHost = newHostResult.rows[0];
+
       // Notify all players
       io.to(`lobby:${lobbyId}`).emit('host-transferred', {
         oldHostId: socket.userId,
         newHostId,
+        newHostUsername: newHost?.display_name || newHost?.username || 'New host',
         timestamp: new Date().toISOString()
       });
 
@@ -455,6 +713,11 @@ module.exports = (io, socket) => {
         [lobbyId]
       );
 
+      await query(
+        `DELETE FROM lobby_players WHERE lobby_id = $1`,
+        [lobbyId]
+      );
+
       // Notify all players
       io.to(`lobby:${lobbyId}`).emit('lobby-closed', {
         lobbyId,
@@ -466,6 +729,37 @@ module.exports = (io, socket) => {
       callback({ success: true, message: 'Lobby closed successfully' });
     } catch (error) {
       logger.error('Close lobby error', error);
+      callback({ success: false, error: error.message });
+    }
+  });
+
+  socket.on('list-my-lobbies', async (data, callback) => {
+    try {
+      const { limit = 20 } = data || {};
+      const normalizedLimit = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+
+      const result = await query(
+        `SELECT l.*,
+                (SELECT COUNT(*) FROM lobby_players WHERE lobby_id = l.id) AS player_count
+         FROM lobby_players lp
+         JOIN lobbies l ON l.id = lp.lobby_id
+         WHERE lp.user_id = $1
+           AND l.status IN ('waiting', 'playing')
+         ORDER BY
+           CASE l.status WHEN 'waiting' THEN 0 ELSE 1 END,
+           l.created_at DESC
+         LIMIT $2`,
+        [socket.userId, normalizedLimit]
+      );
+
+      const lobbies = [];
+      for (const lobby of result.rows) {
+        lobbies.push(await serializeLobby(lobby));
+      }
+
+      callback({ success: true, lobbies });
+    } catch (error) {
+      logger.error('List my lobbies error', error);
       callback({ success: false, error: error.message });
     }
   });
@@ -506,14 +800,26 @@ module.exports = (io, socket) => {
         return callback({ success: false, error: 'Skip time limit must be between 1 and 72 hours' });
       }
 
+      if (Object.prototype.hasOwnProperty.call(settings, 'maxPlayers')) {
+        const normalizedMaxPlayers = normalizeMaxPlayers(maxPlayers);
+        const playerCountResult = await query(
+          `SELECT COUNT(*) AS player_count FROM lobby_players WHERE lobby_id = $1`,
+          [lobbyId]
+        );
+        const currentPlayerCount = parseInt(playerCountResult.rows[0].player_count, 10);
+        if (normalizedMaxPlayers > 0 && normalizedMaxPlayers < currentPlayerCount) {
+          return callback({ success: false, error: `Max players cannot be less than current player count (${currentPlayerCount})` });
+        }
+      }
+
       // Update settings
       const updates = [];
       const values = [];
       let paramCount = 1;
 
-      if (maxPlayers) {
+      if (Object.prototype.hasOwnProperty.call(settings, 'maxPlayers')) {
         updates.push(`max_players = $${paramCount++}`);
-        values.push(maxPlayers);
+        values.push(normalizeMaxPlayers(maxPlayers));
       }
 
       if (totalRounds) {
@@ -538,16 +844,29 @@ module.exports = (io, socket) => {
 
       values.push(lobbyId);
 
+      let updatedLobby = null;
+
       if (updates.length > 0) {
         await query(
           `UPDATE lobbies SET ${updates.join(', ')} WHERE id = $${paramCount}`,
           values
         );
+
+        const updatedLobbyResult = await query(
+          `SELECT l.*,
+                  (SELECT COUNT(*) FROM lobby_players WHERE lobby_id = l.id) AS player_count
+           FROM lobbies l
+           WHERE l.id = $1`,
+          [lobbyId]
+        );
+        updatedLobby = updatedLobbyResult.rows[0];
       }
 
       // Notify all players
       socket.to(`lobby:${lobbyId}`).emit('lobby-settings-updated', {
-        maxPlayers,
+        maxPlayers: Object.prototype.hasOwnProperty.call(settings, 'maxPlayers')
+          ? publicMaxPlayers(normalizeMaxPlayers(maxPlayers))
+          : undefined,
         totalRounds,
         votingPointsPerPlayer,
         skipRule,
@@ -560,7 +879,25 @@ module.exports = (io, socket) => {
         skipTimeLimitHours
       });
 
-      callback({ success: true, message: 'Settings updated successfully' });
+      callback({
+        success: true,
+        message: 'Settings updated successfully',
+        lobby: updatedLobby ? {
+          id: updatedLobby.id,
+          code: updatedLobby.code,
+          name: updatedLobby.name,
+          hostId: updatedLobby.host_id,
+          maxPlayers: publicMaxPlayers(updatedLobby.max_players),
+          playerCount: parseInt(updatedLobby.player_count, 10),
+          isPrivate: updatedLobby.is_private,
+          status: updatedLobby.status,
+          currentRound: updatedLobby.current_round,
+          totalRounds: updatedLobby.total_rounds,
+          votingPointsPerPlayer: updatedLobby.voting_points_per_player,
+          skipRule: updatedLobby.skip_rule || 'majority',
+          skipTimeLimitHours: updatedLobby.skip_time_limit_hours || 24,
+        } : undefined,
+      });
     } catch (error) {
       logger.error('Update lobby settings error', error);
       callback({ success: false, error: error.message });
@@ -588,7 +925,7 @@ module.exports = (io, socket) => {
         code: lobby.code,
         name: lobby.name,
         hostName: lobby.host_name,
-        maxPlayers: lobby.max_players,
+        maxPlayers: publicMaxPlayers(lobby.max_players),
         playerCount: parseInt(lobby.player_count),
         status: lobby.status,
         createdAt: lobby.created_at,

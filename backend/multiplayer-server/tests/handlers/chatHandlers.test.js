@@ -107,4 +107,57 @@ describe('chatHandlers', () => {
       }
     });
   });
+
+  test('returns normalized chat history payload for lobby members', async () => {
+    query
+      .mockResolvedValueOnce({ rows: [{ id: 'lp-1' }] })
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'msg-2',
+            filtered_message: 'Second',
+            timestamp: new Date('2026-03-13T00:00:02.000Z'),
+            user_id: 'user-456',
+            display_name: 'Bob',
+          },
+          {
+            id: 'msg-1',
+            filtered_message: 'First',
+            timestamp: new Date('2026-03-13T00:00:01.000Z'),
+            user_id: 'user-123',
+            display_name: 'Alice',
+          },
+        ],
+      });
+
+    const callback = jest.fn();
+    await handlers['get-chat-history']({
+      lobbyId: 'lobby-1',
+      limit: 20,
+    }, callback);
+
+    expect(callback).toHaveBeenCalledWith({
+      success: true,
+      messages: [
+        {
+          id: 'msg-1',
+          senderId: 'user-123',
+          senderName: 'Alice',
+          userId: 'user-123',
+          displayName: 'Alice',
+          message: 'First',
+          timestamp: '2026-03-13T00:00:01.000Z',
+        },
+        {
+          id: 'msg-2',
+          senderId: 'user-456',
+          senderName: 'Bob',
+          userId: 'user-456',
+          displayName: 'Bob',
+          message: 'Second',
+          timestamp: '2026-03-13T00:00:02.000Z',
+        },
+      ],
+    });
+  });
 });

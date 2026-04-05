@@ -19,6 +19,31 @@ class ChatMessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isSystemMessage = message.senderId == 'system';
+
+    if (isSystemMessage) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 16),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.blueGrey[50],
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              message.message,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.blueGrey[700],
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     return Align(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
@@ -45,10 +70,18 @@ class ChatMessageBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              message.message,
-              style: const TextStyle(fontSize: 14),
-            ),
+            if (message.message.isNotEmpty)
+              Text(
+                message.message,
+                style: const TextStyle(fontSize: 14),
+              ),
+            if (message.emoji != null) ...[
+              const SizedBox(height: 4),
+              Text(
+                message.emoji!,
+                style: const TextStyle(fontSize: 22),
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               _formatTime(message.timestamp),
@@ -138,11 +171,13 @@ class _ChatListViewState extends State<ChatListView> {
 class ChatInputField extends StatefulWidget {
   final Function(String) onSendMessage;
   final Function(bool) onTypingStatusChanged;
+  final Function(String)? onSendReaction;
 
   const ChatInputField({
     Key? key,
     required this.onSendMessage,
     required this.onTypingStatusChanged,
+    this.onSendReaction,
   }) : super(key: key);
 
   @override
@@ -191,7 +226,7 @@ class _ChatInputFieldState extends State<ChatInputField> {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.1),
+            color: Colors.black.withValues(alpha: 0.1),
             blurRadius: 4,
           ),
         ],
@@ -199,31 +234,46 @@ class _ChatInputFieldState extends State<ChatInputField> {
       child: Row(
         children: [
           Expanded(
-            child: TextField(
-              controller: _controller,
-              onChanged: _onTextChanged,
-              decoration: InputDecoration(
-                hintText: 'Type a message...',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (widget.onSendReaction != null)
+                  EmojiPicker(
+                    onEmojiSelected: widget.onSendReaction!,
+                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        onChanged: _onTextChanged,
+                        decoration: InputDecoration(
+                          hintText: 'Type a message...',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                        ),
+                        maxLines: null,
+                        maxLength: 500,
+                        textInputAction: TextInputAction.send,
+                        onSubmitted: (_) => _sendMessage(),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FloatingActionButton(
+                      mini: true,
+                      onPressed: _isTyping ? _sendMessage : null,
+                      backgroundColor: _isTyping ? Theme.of(context).primaryColor : Colors.grey,
+                      child: const Icon(Icons.send, size: 20),
+                    ),
+                  ],
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-              ),
-              maxLines: null,
-              maxLength: 500,
-              textInputAction: TextInputAction.send,
-              onSubmitted: (_) => _sendMessage(),
+              ],
             ),
-          ),
-          const SizedBox(width: 8),
-          FloatingActionButton(
-            mini: true,
-            onPressed: _isTyping ? _sendMessage : null,
-            backgroundColor: _isTyping ? Theme.of(context).primaryColor : Colors.grey,
-            child: const Icon(Icons.send, size: 20),
           ),
         ],
       ),

@@ -126,7 +126,7 @@ Start AFK Detection
 
 **After AFK Detection**:
 - Button appears when ANY player hasn't voted for X hours
-- Button displays player name: "Skip PlayerName"
+- Button displays player name: "Skip Display_Name vote"
 - Button is orange and uses FAB (Floating Action Button)
 
 ### Example Scenario

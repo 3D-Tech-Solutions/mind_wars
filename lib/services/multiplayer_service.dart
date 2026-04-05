@@ -1,6 +1,6 @@
 /**
  * Multiplayer Service - Handles async multiplayer functionality
- * Supports 2-10 players per lobby with turn-based gameplay
+ * Supports async Mind Wars with a minimum of 2 players and an optional open-ended player cap
  */
 
 import 'dart:async';
@@ -110,7 +110,7 @@ class MultiplayerService {
   /// Create a new game lobby with enhanced options
   Future<GameLobby> createLobby({
     required String name,
-    int maxPlayers = 10,
+    int? maxPlayers,
     bool isPrivate = true,
     int numberOfRounds = 3,
     int votingPointsPerPlayer = 10,
@@ -129,8 +129,8 @@ class MultiplayerService {
 
     print('[createLobby] ✓ Socket connected, emitting create-lobby event');
 
-    if (maxPlayers < 2 || maxPlayers > 10) {
-      throw Exception('Max players must be between 2 and 10');
+    if (maxPlayers != null && maxPlayers < 2) {
+      throw Exception('Max players must be at least 2 when a cap is set');
     }
 
     if (numberOfRounds < 1 || numberOfRounds > 10) {
@@ -149,7 +149,7 @@ class MultiplayerService {
       }
     });
 
-    print('[createLobby] Emitting create-lobby with: name=$name, maxPlayers=$maxPlayers, totalRounds=$numberOfRounds');
+    print('[createLobby] Emitting create-lobby with: name=$name, maxPlayers=${maxPlayers ?? 'open'}, totalRounds=$numberOfRounds');
 
     _socket!.emitWithAck('create-lobby', {
       'name': name,
@@ -235,12 +235,15 @@ class MultiplayerService {
     }
 
     final completer = Completer<void>();
+    final leftLobbyId = _currentLobby!.id; // Capture lobby ID before clearing
 
     _socket!.emitWithAck('leave-lobby', {
-      'lobbyId': _currentLobby!.id,
+      'lobbyId': leftLobbyId,
     }, ack: (data) {
       if (data['success']) {
         _currentLobby = null;
+        // Emit event to hub that user left this lobby
+        _emit('left-my-lobby', {'lobbyId': leftLobbyId});
         completer.complete();
       } else {
         completer.completeError(Exception(data['error']));
@@ -332,28 +335,75 @@ class MultiplayerService {
   }
 
   /// Send a chat message
-  void sendMessage(String message) {
+  Future<void> sendMessage(String message) async {
     if (_socket == null || _currentLobby == null) {
       throw Exception('Not in a lobby');
     }
 
-    _socket!.emit('chat-message', {
+    final completer = Completer<void>();
+
+    _socket!.emitWithAck('chat-message', {
       'lobbyId': _currentLobby!.id,
       'message': message,
+    }, ack: (data) {
+      if (data is Map && data['success'] == true) {
+        completer.complete();
+      } else {
+        completer.completeError(Exception((data is Map ? data['error'] : null) ?? 'Failed to send message'));
+      }
     });
+
+    return completer.future;
   }
 
   /// Send an emoji reaction
-  void sendReaction(String messageId, String emoji) {
+  Future<void> sendReaction(String messageId, String emoji) async {
     if (_socket == null || _currentLobby == null) {
       throw Exception('Not in a lobby');
     }
 
-    _socket!.emit('emoji-reaction', {
+    final completer = Completer<void>();
+
+    _socket!.emitWithAck('emoji-reaction', {
       'lobbyId': _currentLobby!.id,
       'messageId': messageId,
       'emoji': emoji,
+    }, ack: (data) {
+      if (data is Map && data['success'] == true) {
+        completer.complete();
+      } else {
+        completer.completeError(Exception((data is Map ? data['error'] : null) ?? 'Failed to send reaction'));
+      }
     });
+
+    return completer.future;
+  }
+
+  Future<List<ChatMessage>> fetchChatHistory({
+    required String lobbyId,
+    int limit = 50,
+  }) async {
+    if (_socket == null) {
+      throw Exception('Not connected to server');
+    }
+
+    final completer = Completer<List<ChatMessage>>();
+
+    _socket!.emitWithAck('get-chat-history', {
+      'lobbyId': lobbyId,
+      'limit': limit,
+    }, ack: (data) {
+      if (data is Map && data['success'] == true) {
+        final messages = (data['messages'] as List? ?? const [])
+            .map((message) => ChatMessage.fromJson(Map<String, dynamic>.from((message as Map).cast<String, dynamic>())))
+            .toList();
+        completer.complete(messages);
+      } else {
+        completer.completeError(Exception((data is Map ? data['error'] : null) ?? 'Failed to load chat history'));
+      }
+    });
+
+    return completer.future;
   }
 
   /// Vote to skip current turn/game
@@ -507,6 +557,29 @@ class MultiplayerService {
 
     return completer.future;
   }
+
+  Future<List<GameLobby>> getMyLobbies({int limit = 20}) async {
+    if (_socket == null) {
+      throw Exception('Not connected to server');
+    }
+
+    final completer = Completer<List<GameLobby>>();
+
+    _socket!.emitWithAck('list-my-lobbies', {
+      'limit': limit,
+    }, ack: (data) {
+      if (data['success']) {
+        final lobbies = (data['lobbies'] as List)
+            .map((l) => GameLobby.fromJson(l))
+            .toList();
+        completer.complete(lobbies);
+      } else {
+        completer.completeError(Exception(data['error']));
+      }
+    });
+
+    return completer.future;
+  }
   
   /// Kick a player from the lobby (host only)
   Future<void> kickPlayer(String playerId) async {
@@ -559,12 +632,15 @@ class MultiplayerService {
     }
 
     final completer = Completer<void>();
+    final closedLobbyId = _currentLobby!.id; // Capture ID before clearing
 
     _socket!.emitWithAck('close-lobby', {
-      'lobbyId': _currentLobby!.id,
+      'lobbyId': closedLobbyId,
     }, ack: (data) {
       if (data['success']) {
         _currentLobby = null;
+        // Emit event so hub removes the closed lobby
+        _emit('lobby-closed', {'lobbyId': closedLobbyId});
         completer.complete();
       } else {
         completer.completeError(Exception(data['error']));
@@ -578,6 +654,7 @@ class MultiplayerService {
   Future<GameLobby> updateLobbySettings({
     String? name,
     int? maxPlayers,
+    bool updateMaxPlayers = false,
     bool? isPrivate,
     int? numberOfRounds,
     int? votingPointsPerPlayer,
@@ -595,9 +672,9 @@ class MultiplayerService {
     };
 
     if (name != null) settings['name'] = name;
-    if (maxPlayers != null) settings['maxPlayers'] = maxPlayers;
+    if (updateMaxPlayers) settings['maxPlayers'] = maxPlayers;
     if (isPrivate != null) settings['isPrivate'] = isPrivate;
-    if (numberOfRounds != null) settings['numberOfRounds'] = numberOfRounds;
+    if (numberOfRounds != null) settings['totalRounds'] = numberOfRounds;
     if (votingPointsPerPlayer != null) settings['votingPointsPerPlayer'] = votingPointsPerPlayer;
     if (skipRule != null) settings['skipRule'] = skipRule.value;
     if (skipTimeLimitHours != null) settings['skipTimeLimitHours'] = skipTimeLimitHours;
@@ -648,6 +725,10 @@ class MultiplayerService {
     
     _socket!.on('host-transferred', (data) {
       _emit('host-transferred', data);
+    });
+
+    _socket!.on('host-changed', (data) {
+      _emit('host-changed', data);
     });
     
     _socket!.on('lobby-closed', (data) {

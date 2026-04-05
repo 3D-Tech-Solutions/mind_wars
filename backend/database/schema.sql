@@ -55,11 +55,15 @@ CREATE TABLE IF NOT EXISTS lobby_players (
     lobby_id UUID NOT NULL REFERENCES lobbies(id) ON DELETE CASCADE,
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     joined_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    is_ready BOOLEAN DEFAULT false,
+    ready_at TIMESTAMP,
+    status VARCHAR(20) DEFAULT 'joined', -- joined, ready, playing, completed
     UNIQUE(lobby_id, user_id)
 );
 
 CREATE INDEX idx_lobby_players_lobby_id ON lobby_players(lobby_id);
 CREATE INDEX idx_lobby_players_user_id ON lobby_players(user_id);
+CREATE INDEX idx_lobby_players_status ON lobby_players(status);
 
 -- Game results table
 CREATE TABLE IF NOT EXISTS game_results (

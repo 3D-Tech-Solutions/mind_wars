@@ -25,6 +25,8 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
 
   bool _isCreating = false;
   String? _errorMessage;
+  bool _isPlayerCapOpen = true;
+  int _maxPlayers = 12;
 
   @override
   void dispose() {
@@ -45,6 +47,7 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
     try {
       final lobby = await widget.multiplayerService.createLobby(
         name: _nameController.text.trim(),
+        maxPlayers: _isPlayerCapOpen ? null : _maxPlayers,
       );
 
       if (!mounted) return;
@@ -115,6 +118,66 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 24),
+
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Player Capacity',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Mind Wars need at least 2 players, but you can leave the upper limit open or set a cap.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('Open Capacity'),
+                        subtitle: const Text('Allow any number of players to join'),
+                        value: _isPlayerCapOpen,
+                        onChanged: (value) {
+                          setState(() {
+                            _isPlayerCapOpen = value;
+                          });
+                        },
+                      ),
+                      if (!_isPlayerCapOpen) ...[
+                        Slider(
+                          value: _maxPlayers.toDouble(),
+                          min: 2,
+                          max: 100,
+                          divisions: 98,
+                          label: _maxPlayers.toString(),
+                          onChanged: (value) {
+                            setState(() {
+                              _maxPlayers = value.round();
+                            });
+                          },
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Text(
+                            'Cap: $_maxPlayers players',
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 24),
 

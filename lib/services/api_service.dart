@@ -214,7 +214,7 @@ class ApiService {
   }
 
   /// Create lobby
-  Future<GameLobby> createLobby(String name, int maxPlayers) async {
+  Future<GameLobby> createLobby(String name, {int? maxPlayers}) async {
     final response = await http.post(
       Uri.parse('$baseUrl/lobbies'),
       headers: _headers,

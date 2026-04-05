@@ -1,6 +1,6 @@
 # Mind Wars 🧠⚔️
 
-**Mind Wars** is an async multiplayer cognitive games platform supporting 2-10 players per lobby with cross-platform support for iOS 14+ and Android 8+.
+**Mind Wars** is an async multiplayer cognitive games platform with cross-platform support for iOS 14+ and Android 8+. A Mind War requires at least 2 players, supports an admin-defined upper player limit, and also supports solo local practice outside of Mind Wars.
 
 ## Development Philosophy
 
@@ -25,12 +25,15 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 ## Features
 
 ### 🎮 Async Multiplayer
-- **2-10 players** per lobby
-- Turn-based gameplay system
+- **2+ players** per Mind War, with the upper limit defined by the host or admin configuration
+- Round-based async gameplay system
 - Real-time lobby management via Socket.io
 - Automatic reconnection support
 - Player status tracking (active/idle/disconnected)
-- Async-first design: players can take turns hours apart
+- Async-first design: players complete sealed game slots at their own pace during the round window
+- Players may participate in multiple Mind Wars at the same time across friends, family, and matchmaking groups
+- Players may only be in one planning lobby at a time, while active Mind War participation is capped at 10 concurrent wars
+- Solo play is supported locally for practice, but a Mind War itself starts at 2 players
 
 ### 📱 Cross-Platform Support
 - **iOS 14+** support
@@ -39,7 +42,7 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 - **Flutter** architecture for native performance
 
 ### 🎯 Game Variety
-**12+ games across 5 cognitive categories:**
+**15 games across 5 cognitive categories:**
 
 #### 🧠 Memory Games
 - Memory Match - Match pairs of cards
@@ -91,6 +94,7 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 ### 📴 Offline Mode
 - **All games playable offline** (Offline-First)
 - Local puzzle solving with SQLite storage
+- Per-Mind-War progress snapshots so multiple active rounds do not overwrite each other
 - **Automatic sync** on reconnect with retry logic
 - Sync queue for failed API calls
 - Conflict resolution: Server wins for scoring, client preserves user input
@@ -101,10 +105,12 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 ### Client-Server Model
 - **Thin Client**: UI rendering, local game logic validation, offline caching
 - **Authoritative Server**: Source of truth for game state, scoring, player matching
+- **Sealed Payload Model**: each Mind War round locks one identical challenge package per game slot for every player
 - **Rationale**: Prevents cheating; enables cross-device sync
 
 ### Offline Resilience
 - Games stored locally in SQLite with sync queue
+- Games restore from scoped progress snapshots keyed to the specific Mind War round and challenge
 - Automatic retry logic for failed API calls (max 5 retries)
 - Conflict resolution: Server wins for scoring validation
 - Optimistic updates with server confirmation
@@ -174,6 +180,8 @@ Key documents:
 - [Developer Onboarding](docs/project/DEVELOPER_ONBOARDING.md)
 - [Social Media Strategy](docs/social/SOCIAL_MEDIA_STRATEGY.md)
 - [Game Design Template](docs/games/GAME_DESIGN_TEMPLATE.md)
+- [Async Game Contract](docs/games/ASYNC_GAME_CONTRACT.md)
+- [Sealed Payload Implementation Guide](docs/games/SEALED_PAYLOAD_IMPLEMENTATION_GUIDE.md)
 
 ### 🔬 Research Archives
 Extensive research on game design and cognitive training:

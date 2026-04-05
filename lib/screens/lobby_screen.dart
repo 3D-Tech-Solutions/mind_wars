@@ -32,6 +32,7 @@ class LobbyScreen extends StatefulWidget {
 class _LobbyScreenState extends State<LobbyScreen> {
   GameLobby? _lobby;
   bool _isLoading = true;
+  bool _skipLeaveLobbyConfirmation = false;
   final Map<String, bool> _typingPlayers = {};
 
   @override
@@ -369,6 +370,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       try {
         await widget.multiplayerService.closeLobby();
         if (!mounted) return;
+        // Return to multiplayer hub - pop the lobby screen
         Navigator.of(context).pop();
       } catch (e) {
         _showSnackBar('Failed to close lobby: ${e.toString()}');
@@ -377,11 +379,70 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Future<void> _leaveLobby() async {
+    // Show confirmation dialog unless user checked "Do Not Ask Again"
+    if (!_skipLeaveLobbyConfirmation && _lobby != null) {
+      final shouldLeave = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          bool dontAskAgain = false;
+          return StatefulBuilder(
+            builder: (context, setState) {
+              return AlertDialog(
+                title: Text('Leave "${_lobby!.name}"?'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Are you sure you want to leave this Mind War?'),
+                    const SizedBox(height: 16),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() => dontAskAgain = !dontAskAgain);
+                      },
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: dontAskAgain,
+                            onChanged: (val) {
+                              setState(() => dontAskAgain = val ?? false);
+                            },
+                          ),
+                          const Text('Do not ask again'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext, false),
+                    child: const Text('Cancel'),
+                  ),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(dialogContext, true),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text('Leave'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+
+      if (shouldLeave != true) return; // User canceled
+    }
+
+    // Actually leave the lobby
     try {
       await widget.multiplayerService.leaveLobby();
       if (!mounted) return;
       Navigator.of(context).pop();
     } catch (e) {
+      if (!mounted) return;
       _showSnackBar('Failed to leave lobby: ${e.toString()}');
     }
   }
@@ -415,6 +476,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
         builder: (context) => ChatScreen(
           lobbyId: _lobby!.id,
           currentUserId: widget.currentUserId,
+          multiplayerService: widget.multiplayerService,
         ),
       ),
     );

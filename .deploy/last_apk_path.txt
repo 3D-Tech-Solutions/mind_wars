@@ -1,0 +1,1 @@
+/mnt/d/source/3D-Tech-Solutions/mind-wars/build/app/outputs/flutter-apk/app-local-debug.apk

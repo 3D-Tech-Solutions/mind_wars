@@ -11,7 +11,7 @@ import '../widgets/vote_to_skip_widgets.dart';
 class LobbySettingsScreen extends StatefulWidget {
   final GameLobby lobby;
   final Function(
-    int maxPlayers,
+    int? maxPlayers,
     int totalRounds,
     int votingPoints,
     SkipRule skipRule,
@@ -29,6 +29,7 @@ class LobbySettingsScreen extends StatefulWidget {
 }
 
 class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
+  late bool _isPlayerCapOpen;
   late int _maxPlayers;
   late int _totalRounds;
   late int _votingPoints;
@@ -38,7 +39,8 @@ class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
   @override
   void initState() {
     super.initState();
-    _maxPlayers = widget.lobby.maxPlayers;
+    _isPlayerCapOpen = widget.lobby.maxPlayers == null;
+    _maxPlayers = widget.lobby.maxPlayers ?? 12;
     _totalRounds = widget.lobby.numberOfRounds;
     _votingPoints = widget.lobby.votingPointsPerPlayer;
     _skipRule = widget.lobby.skipRule;
@@ -65,21 +67,40 @@ class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
         children: [
           _buildSettingCard(
             title: 'Max Players',
-            subtitle: 'Maximum number of players allowed in this lobby',
-            child: Slider(
-              value: _maxPlayers.toDouble(),
-              min: 2,
-              max: 10,
-              divisions: 8,
-              label: _maxPlayers.toString(),
-              onChanged: (value) {
-                setState(() {
-                  _maxPlayers = value.round();
-                });
-              },
+            subtitle: 'Leave this open or set a player cap for the Mind War',
+            child: Column(
+              children: [
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Open Capacity'),
+                  subtitle: const Text('Allow any number of players to join until the host closes the lobby or starts the Mind War'),
+                  value: _isPlayerCapOpen,
+                  onChanged: (value) {
+                    setState(() {
+                      _isPlayerCapOpen = value;
+                      if (!_isPlayerCapOpen && _maxPlayers < widget.lobby.players.length) {
+                        _maxPlayers = widget.lobby.players.length;
+                      }
+                    });
+                  },
+                ),
+                if (!_isPlayerCapOpen)
+                  Slider(
+                    value: _maxPlayers.toDouble(),
+                    min: 2,
+                    max: 100,
+                    divisions: 98,
+                    label: _maxPlayers.toString(),
+                    onChanged: (value) {
+                      setState(() {
+                        _maxPlayers = value.round();
+                      });
+                    },
+                  ),
+              ],
             ),
             trailing: Text(
-              _maxPlayers.toString(),
+              _isPlayerCapOpen ? 'Open' : _maxPlayers.toString(),
               style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
@@ -183,7 +204,9 @@ class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
                   _buildInfoRow('Host', widget.lobby.hostId),
                   _buildInfoRow(
                     'Current Players',
-                    '${widget.lobby.players.length}/${widget.lobby.maxPlayers}',
+                    widget.lobby.maxPlayers == null
+                        ? '${widget.lobby.players.length}/Open'
+                        : '${widget.lobby.players.length}/${widget.lobby.maxPlayers}',
                   ),
                   _buildInfoRow('Status', widget.lobby.status),
                 ],
@@ -264,7 +287,7 @@ class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
 
   void _saveSettings() {
     // Validate that maxPlayers is not less than current player count
-    if (_maxPlayers < widget.lobby.players.length) {
+    if (!_isPlayerCapOpen && _maxPlayers < widget.lobby.players.length) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Max players cannot be less than current player count (${widget.lobby.players.length})'),
@@ -276,7 +299,7 @@ class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
 
     // Call the onSave callback if provided
     widget.onSave?.call(
-      _maxPlayers,
+      _isPlayerCapOpen ? null : _maxPlayers,
       _totalRounds,
       _votingPoints,
       _skipRule,

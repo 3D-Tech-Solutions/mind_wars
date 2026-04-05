@@ -211,6 +211,7 @@ class Player {
   final String username;
   final String? displayName;  // Non-unique, editable display name
   final String? avatar;
+  final String? avatarUrl;
   final PlayerStatus status;
   final int score;
   final int streak;
@@ -222,6 +223,7 @@ class Player {
     required this.username,
     this.displayName,
     this.avatar,
+    this.avatarUrl,
     required this.status,
     required this.score,
     required this.streak,
@@ -234,6 +236,7 @@ class Player {
         'username': username,
         'displayName': displayName,
         'avatar': avatar,
+        'avatarUrl': avatarUrl,
         'status': status.toString(),
         'score': score,
         'streak': streak,
@@ -243,9 +246,10 @@ class Player {
 
   factory Player.fromJson(Map<String, dynamic> json) => Player(
         id: json['id'],
-        username: json['username'],
-        displayName: json['displayName'],
+        username: json['username'] ?? json['displayName'] ?? 'Player',
+        displayName: json['displayName'] ?? json['username'],
         avatar: json['avatar'],
+        avatarUrl: json['avatarUrl'],
         status: PlayerStatus.values.firstWhere(
           (e) => e.toString() == json['status'],
           orElse: () => PlayerStatus.active,
@@ -299,13 +303,14 @@ class GameLobby {
   final String name;
   final String hostId;
   final List<Player> players;
-  final int maxPlayers;
+  final int? maxPlayers;
   final Game? currentGame;
   final String status; // 'waiting', 'in-progress', 'completed'
   final DateTime createdAt;
   final String? lobbyCode; // Shareable lobby code (e.g., "FAMILY42")
   final bool isPrivate; // Private lobbies require code to join
   final int numberOfRounds; // Number of rounds to play
+  final int currentRound; // Current round being played
   final int votingPointsPerPlayer; // Points each player gets for voting
   final SkipRule skipRule; // Vote-to-skip rule (majority, unanimous, time_based)
   final int skipTimeLimitHours; // Time limit for time-based skip rule
@@ -328,6 +333,7 @@ class GameLobby {
     this.lobbyCode,
     this.isPrivate = true,
     this.numberOfRounds = 3,
+    this.currentRound = 1,
     this.votingPointsPerPlayer = 10,
     this.skipRule = SkipRule.majority,
     this.skipTimeLimitHours = 24,
@@ -349,6 +355,7 @@ class GameLobby {
         'lobbyCode': lobbyCode,
         'isPrivate': isPrivate,
         'numberOfRounds': numberOfRounds,
+        'currentRound': currentRound,
         'votingPointsPerPlayer': votingPointsPerPlayer,
         'skipRule': skipRule.value,
         'skipTimeLimitHours': skipTimeLimitHours,
@@ -365,7 +372,7 @@ class GameLobby {
         players: (json['players'] as List?)
             ?.map((p) => Player.fromJson(p))
             .toList() ?? [],
-        maxPlayers: json['maxPlayers'],
+        maxPlayers: _parseMaxPlayers(json['maxPlayers']),
         currentGame: json['currentGame'] != null
             ? Game.fromJson(json['currentGame'])
             : null,
@@ -374,6 +381,7 @@ class GameLobby {
         lobbyCode: json['code'] ?? json['lobbyCode'],
         isPrivate: json['isPrivate'] ?? true,
         numberOfRounds: json['totalRounds'] ?? json['numberOfRounds'] ?? 3,
+        currentRound: json['currentRound'] ?? 1,
         votingPointsPerPlayer: json['votingPointsPerPlayer'] ?? 10,
         skipRule: json['skipRule'] != null
             ? SkipRuleExtension.fromString(json['skipRule'])
@@ -398,6 +406,7 @@ class GameLobby {
     String? lobbyCode,
     bool? isPrivate,
     int? numberOfRounds,
+    int? currentRound,
     int? votingPointsPerPlayer,
     SkipRule? skipRule,
     int? skipTimeLimitHours,
@@ -418,6 +427,7 @@ class GameLobby {
       lobbyCode: lobbyCode ?? this.lobbyCode,
       isPrivate: isPrivate ?? this.isPrivate,
       numberOfRounds: numberOfRounds ?? this.numberOfRounds,
+      currentRound: currentRound ?? this.currentRound,
       votingPointsPerPlayer: votingPointsPerPlayer ?? this.votingPointsPerPlayer,
       skipRule: skipRule ?? this.skipRule,
       skipTimeLimitHours: skipTimeLimitHours ?? this.skipTimeLimitHours,
@@ -432,10 +442,24 @@ class GameLobby {
   bool isHost(String userId) => hostId == userId;
   
   /// Check if lobby is full
-  bool get isFull => players.length >= maxPlayers;
+  bool get isFull => maxPlayers != null && players.length >= maxPlayers!;
   
   /// Check if lobby can be joined
   bool get canJoin => status == 'waiting' && !isFull;
+
+  /// Human-readable capacity label
+  String get capacityLabel => maxPlayers == null ? 'Open' : maxPlayers.toString();
+
+  static int? _parseMaxPlayers(dynamic value) {
+    if (value == null) {
+      return null;
+    }
+    final parsed = value is num ? value.toInt() : int.tryParse(value.toString());
+    if (parsed == null || parsed <= 0) {
+      return null;
+    }
+    return parsed;
+  }
 }
 
 /// Game model
@@ -557,9 +581,9 @@ class ChatMessage {
 
   factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
         id: json['id'],
-        senderId: json['senderId'],
-        senderName: json['senderName'],
-        message: json['message'],
+        senderId: json['senderId'] ?? json['userId'] ?? '',
+        senderName: json['senderName'] ?? json['displayName'] ?? 'Unknown',
+        message: json['message'] ?? '',
         timestamp: DateTime.parse(json['timestamp']),
         emoji: json['emoji'],
       );

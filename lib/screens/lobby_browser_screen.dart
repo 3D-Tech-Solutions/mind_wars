@@ -302,7 +302,9 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
                       leading: CircleAvatar(
                         backgroundColor: Colors.blue,
                         child: Text(
-                          '${lobby.players.length}/${lobby.maxPlayers}',
+                          lobby.maxPlayers == null
+                              ? '${lobby.players.length}/Open'
+                              : '${lobby.players.length}/${lobby.maxPlayers}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -315,7 +317,9 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        '${lobby.players.length} of ${lobby.maxPlayers} players • ${lobby.numberOfRounds} rounds',
+                        lobby.maxPlayers == null
+                            ? '${lobby.players.length} players • ${lobby.numberOfRounds} rounds • Open lobby'
+                            : '${lobby.players.length} of ${lobby.maxPlayers} players • ${lobby.numberOfRounds} rounds',
                       ),
                       trailing: ElevatedButton(
                         onPressed: lobby.canJoin && !_isJoining
