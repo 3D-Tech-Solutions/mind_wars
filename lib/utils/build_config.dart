@@ -92,7 +92,11 @@ class BuildConfig {
 
   static String get wsBaseUrl {
     if (isLocal) {
-      return 'http://$_localApiHost:3001';
+      // [2026-04-04 Bugfix] Use nginx gateway port 4001 (external) that routes to multiplayer server
+      // Internal docker: multiplayer server listens on 3001, nginx routes /socket.io to it
+      // External access: use port 4001 which maps to nginx port 4000
+      // The Socket.io client will connect to http://$_localApiHost:4001/socket.io
+      return 'http://$_localApiHost:4001';
     }
     // [2025-11-18 Feature] Updated Socket.io endpoint to use public domain
     // Uses war.e-mothership.com:4000 for WebSocket connections

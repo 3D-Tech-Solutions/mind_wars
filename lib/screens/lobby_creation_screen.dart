@@ -23,10 +23,6 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
 
-  int _maxPlayers = 4;
-  bool _isPrivate = true;
-  int _numberOfRounds = 3;
-  int _votingPointsPerPlayer = 10;
   bool _isCreating = false;
   String? _errorMessage;
 
@@ -49,10 +45,6 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
     try {
       final lobby = await widget.multiplayerService.createLobby(
         name: _nameController.text.trim(),
-        maxPlayers: _maxPlayers,
-        isPrivate: _isPrivate,
-        numberOfRounds: _numberOfRounds,
-        votingPointsPerPlayer: _votingPointsPerPlayer,
       );
 
       if (!mounted) return;
@@ -106,205 +98,23 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
               TextFormField(
                 controller: _nameController,
                 decoration: const InputDecoration(
-                  labelText: 'Lobby Name',
-                  hintText: 'e.g., Smith Family Game Night',
+                  labelText: 'Mind War Name',
+                  hintText: 'e.g., Smith Family Challenge',
                   border: OutlineInputBorder(),
                   prefixIcon: Icon(Icons.label),
                 ),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a lobby name';
+                    return 'Please enter a name';
                   }
                   if (value.trim().length < 3) {
-                    return 'Lobby name must be at least 3 characters';
+                    return 'Name must be at least 3 characters';
                   }
                   if (value.trim().length > 50) {
-                    return 'Lobby name must be less than 50 characters';
+                    return 'Name must be less than 50 characters';
                   }
                   return null;
                 },
-              ),
-              const SizedBox(height: 24),
-
-              // Max Players Selector
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.people, color: Colors.blue),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Max Players',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$_maxPlayers',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Slider(
-                        value: _maxPlayers.toDouble(),
-                        min: 2,
-                        max: 10,
-                        divisions: 8,
-                        label: '$_maxPlayers players',
-                        onChanged: (value) {
-                          setState(() {
-                            _maxPlayers = value.toInt();
-                          });
-                        },
-                      ),
-                      const Text(
-                        '2-10 players',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Privacy Toggle
-              Card(
-                child: SwitchListTile(
-                  title: const Text(
-                    'Private Lobby',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    _isPrivate
-                        ? 'Only players with the code can join'
-                        : 'Anyone can see and join this lobby',
-                  ),
-                  value: _isPrivate,
-                  onChanged: (value) {
-                    setState(() {
-                      _isPrivate = value;
-                    });
-                  },
-                  secondary: Icon(
-                    _isPrivate ? Icons.lock : Icons.public,
-                    color: _isPrivate ? Colors.green : Colors.orange,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Number of Rounds
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.repeat, color: Colors.purple),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Number of Rounds',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$_numberOfRounds',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.purple,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Slider(
-                        value: _numberOfRounds.toDouble(),
-                        min: 1,
-                        max: 10,
-                        divisions: 9,
-                        label: '$_numberOfRounds rounds',
-                        onChanged: (value) {
-                          setState(() {
-                            _numberOfRounds = value.toInt();
-                          });
-                        },
-                      ),
-                      const Text(
-                        '1-10 rounds',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Voting Points
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.how_to_vote, color: Colors.orange),
-                          const SizedBox(width: 8),
-                          const Text(
-                            'Voting Points per Player',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            '$_votingPointsPerPlayer',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.orange,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Slider(
-                        value: _votingPointsPerPlayer.toDouble(),
-                        min: 5,
-                        max: 20,
-                        divisions: 15,
-                        label: '$_votingPointsPerPlayer points',
-                        onChanged: (value) {
-                          setState(() {
-                            _votingPointsPerPlayer = value.toInt();
-                          });
-                        },
-                      ),
-                      const Text(
-                        '5-20 points for voting on games',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
               ),
               const SizedBox(height: 24),
 
@@ -363,9 +173,7 @@ class _LobbyCreationScreenState extends State<LobbyCreationScreen> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        _isPrivate
-                            ? 'You\'ll receive a shareable code to invite players'
-                            : 'Your lobby will be visible to all players',
+                        'You\'ll get a code to share with other players to join',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.blue.shade700,

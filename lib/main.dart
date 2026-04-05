@@ -13,14 +13,22 @@ import 'services/local_auth_service.dart';
 import 'services/multiplayer_service.dart';
 import 'services/offline_service.dart';
 import 'services/progression_service.dart';
-import 'services/connectivity_service.dart';
 import 'services/app_logger.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/registration_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/profile_setup_screen.dart';
+import 'screens/edit_profile_screen.dart';
+import 'screens/profile_info_screen.dart';
 import 'screens/offline_game_play_screen.dart';
+import 'screens/lobby_browser_screen.dart';
+import 'screens/multiplayer_hub_screen.dart';
+import 'screens/lobby_creation_screen.dart';
+import 'screens/join_mind_war_screen.dart';
+import 'screens/lobby_screen.dart';
+import 'screens/multiplayer_game_screen.dart';
+import 'screens/game_results_screen.dart';
 import 'games/game_catalog.dart';
 import 'models/models.dart';
 import 'widgets/branded_avatar.dart';
@@ -156,8 +164,40 @@ class _MindWarsAppState extends State<MindWarsApp> {
               '/register': (context) => const RegistrationScreen(),
               '/onboarding': (context) => const OnboardingScreen(),
               '/profile-setup': (context) => const ProfileSetupScreen(),
+              '/edit-profile': (context) => const EditProfileScreen(),
+              '/profile-info': (context) => const ProfileInfoScreen(),
               '/home': (context) => const HomeScreen(),
-              '/lobby-list': (context) => const LobbyListScreen(),
+              '/lobby-list': (context) => const MultiplayerHubScreen(),
+              '/create-lobby': (context) => LobbyCreationScreen(
+                    multiplayerService: context.read<MultiplayerService>(),
+                  ),
+              '/join-mind-war': (context) => JoinMindWarScreen(
+                    multiplayerService: context.read<MultiplayerService>(),
+                  ),
+              '/browse-lobbies': (context) => LobbyBrowserScreen(
+                    multiplayerService: context.read<MultiplayerService>(),
+                  ),
+              '/lobby': (context) => LobbyScreen(
+                    multiplayerService: context.read<MultiplayerService>(),
+                    currentUserId: context.read<AuthService>().currentUser?.id ?? '',
+                  ),
+              '/game': (context) {
+                final game = ModalRoute.of(context)?.settings.arguments as Game?;
+                if (game == null) {
+                  return const Scaffold(
+                    body: Center(child: Text('No game data')),
+                  );
+                }
+                return MultiplayerGameScreen(
+                  multiplayerService: context.read<MultiplayerService>(),
+                  currentUserId: context.read<AuthService>().currentUser?.id ?? '',
+                  game: game,
+                );
+              },
+              '/game-results': (context) {
+                final results = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+                return GameResultsScreen(results: results);
+              },
               '/leaderboard': (context) => const LeaderboardScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/offline': (context) => const OfflineScreen(),
@@ -190,8 +230,9 @@ class HomeScreen extends StatelessWidget {
             ),
           IconButton(
             icon: const Icon(Icons.person),
+            tooltip: 'Edit Profile',
             onPressed: () {
-              Navigator.pushNamed(context, '/profile');
+              Navigator.pushNamed(context, '/edit-profile');
             },
           ),
         ],
@@ -313,132 +354,192 @@ class LobbyListScreen extends StatefulWidget {
 }
 
 class _LobbyListScreenState extends State<LobbyListScreen> {
-  bool _showDebugPanel = false;
+  late final MultiplayerService _multiplayerService;
+  late final AuthService _authService;
+  bool _isConnecting = true;
+  bool _hasConnectionError = false;
+  String _statusMessage = 'Connecting to multiplayer server...';
 
   @override
   void initState() {
     super.initState();
-    // Show debug panel on enter in alpha mode
-    if (kAlphaMode) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _showDebugPanelModal();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initializeMultiplayer();
+    });
+  }
+
+  Future<void> _initializeMultiplayer() async {
+    _multiplayerService = Provider.of<MultiplayerService>(context, listen: false);
+    _authService = Provider.of<AuthService>(context, listen: false);
+
+    final currentUser = _authService.currentUser;
+    if (currentUser == null) {
+      setState(() {
+        _statusMessage = 'User not signed in. Please log in again.';
+        _hasConnectionError = true;
+        _isConnecting = false;
+      });
+      return;
+    }
+
+    try {
+      if (!_multiplayerService.isConnected) {
+        await _multiplayerService.connect(
+          BuildConfig.wsBaseUrl,
+          currentUser.id,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = 'Connected as ${currentUser.username}';
+        _hasConnectionError = false;
+        _isConnecting = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _statusMessage = 'Unable to connect to multiplayer server';
+        _hasConnectionError = true;
+        _isConnecting = false;
       });
     }
   }
 
-  void _showDebugPanelModal() {
-    showDebugPanel(
-      context,
-      onContinue: () {
-        Navigator.pop(context);
-      },
+  void _navigateToCreateLobby() {
+    Navigator.pushNamed(context, '/create-lobby');
+  }
+
+  void _navigateToBrowseLobbies() {
+    Navigator.pushNamed(context, '/browse-lobbies');
+  }
+
+  Widget _buildStatusCard() {
+    return Card(
+      color: _hasConnectionError ? Colors.red.shade50 : Colors.green.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Row(
+          children: [
+            Icon(
+              _hasConnectionError ? Icons.error_outline : Icons.check_circle,
+              color: _hasConnectionError ? Colors.red : Colors.green,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                _statusMessage,
+                style: TextStyle(
+                  color: _hasConnectionError ? Colors.red.shade900 : Colors.green.shade900,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            if (_hasConnectionError)
+              OutlinedButton(
+                onPressed: _initializeMultiplayer,
+                child: const Text('Retry'),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Multiplayer')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
+      appBar: AppBar(
+        title: const Text('Multiplayer Dashboard'),
+        actions: [
+          if (kAlphaMode)
+            IconButton(
+              icon: const Icon(Icons.bug_report),
+              tooltip: 'Debug Panel',
+              onPressed: () => showDebugPanel(context),
+            ),
+        ],
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16.0),
           children: [
-            // Info Banner with debug button in alpha
-            if (kAlphaMode)
-              Card(
-                color: Colors.orange[100],
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Icon(Icons.info, color: Colors.orange),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Alpha Testing: Backend connectivity required',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.orange[900],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Use the debug panel below to test server connectivity. '
-                        'If servers are unreachable, try "Play Offline" instead.',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.orange[900],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _showDebugPanelModal,
-                          icon: const Icon(Icons.bug_report),
-                          label: const Text('Show Debug Panel'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
+            _buildStatusCard(),
+            const SizedBox(height: 24),
+            const Text(
+              'Multiplayer Lobby Hub',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
               ),
-
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Create a Mind War, invite players, or join an existing lobby to start playing together.',
+              style: TextStyle(fontSize: 16, color: Colors.grey),
+            ),
             const SizedBox(height: 24),
-
-            // Illustration
-            Icon(
-              Icons.people,
-              size: 100,
-              color: Colors.grey[300],
-            ),
-
-            const SizedBox(height: 24),
-
-            Text(
-              'Multiplayer Coming Soon',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-
-            const SizedBox(height: 12),
-
-            Text(
-              'Create lobbies, invite friends, and compete in real-time when the servers are ready!',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-              textAlign: TextAlign.center,
-            ),
-
-            const SizedBox(height: 32),
-
             FilledButton.icon(
-              onPressed: () {
-                Navigator.pushNamed(context, '/offline');
-              },
+              onPressed: _isConnecting ? null : _navigateToCreateLobby,
+              icon: const Icon(Icons.add_circle_outline),
+              label: const Text('Create a Mind War'),
+              style: FilledButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _isConnecting ? null : _navigateToBrowseLobbies,
+              icon: const Icon(Icons.search),
+              label: const Text('Join Existing Lobby'),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _hasConnectionError ? () => Navigator.pop(context) : null,
               icon: const Icon(Icons.offline_bolt),
               label: const Text('Play Offline Instead'),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.pop(context);
-              },
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Back to Home'),
+            const SizedBox(height: 32),
+            const Text(
+              'Invite Players',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
             ),
+            const SizedBox(height: 12),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    Text(
+                      'After creating a lobby, share the lobby code with your friends. '
+                      'For private lobbies, only players with the code can join.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                    SizedBox(height: 12),
+                    Text(
+                      'Need help? Try creating a lobby and then use the lobby screen to copy the code or invite players.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            if (kAlphaMode)
+              const Text(
+                'Tip: Use the debug panel to verify multiplayer server status while testing locally.',
+                style: TextStyle(fontSize: 12, color: Colors.orange),
+              ),
           ],
         ),
       ),

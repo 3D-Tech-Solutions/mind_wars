@@ -7,6 +7,7 @@
 import 'dart:math';
 import 'package:uuid/uuid.dart';
 import '../models/models.dart';
+import '../games/rotation_master/rotation_master_engine.dart';
 
 /// Difficulty levels for puzzles
 enum Difficulty { easy, medium, hard }
@@ -307,12 +308,20 @@ class GameContentGenerator {
   }
 
   Puzzle _generateRotationMaster(Difficulty difficulty) {
-    final rotationCount = difficulty == Difficulty.easy ? 5 : difficulty == Difficulty.medium ? 8 : 12;
+    final difficultyName = difficulty == Difficulty.easy
+        ? 'easy'
+        : difficulty == Difficulty.medium
+            ? 'medium'
+            : 'hard';
+    final challengeSet = RotationMasterEngine.generateChallengeSet(
+      seed: _generatePuzzleId('rotation_master_seed'),
+      difficulty: difficultyName,
+    );
 
     return _RotationMasterPuzzle(
       id: _generatePuzzleId('rotation_master'),
       difficulty: difficulty,
-      rotationCount: rotationCount,
+      challengeSet: challengeSet,
       maxScore: _getMaxScore(difficulty),
       timeLimit: _getTimeLimit(difficulty, 90),
     );
@@ -597,7 +606,7 @@ class _PuzzleRacePuzzle extends Puzzle {
 class _RotationMasterPuzzle extends Puzzle {
   _RotationMasterPuzzle({
     required Difficulty difficulty,
-    required int rotationCount,
+    required Map<String, dynamic> challengeSet,
     required int maxScore,
     required int timeLimit,
     required String id,
@@ -606,8 +615,12 @@ class _RotationMasterPuzzle extends Puzzle {
           gameType: 'rotation_master',
           category: CognitiveCategory.spatial,
           difficulty: difficulty,
-          data: {'rotationCount': rotationCount},
-          solution: {'matches': []},
+          data: challengeSet,
+          solution: {
+            'correctIndicesByPrompt': (challengeSet['prompts'] as List)
+                .map((prompt) => prompt['correctIndices'])
+                .toList(),
+          },
           maxScore: maxScore,
           timeLimit: timeLimit,
         );

@@ -13,6 +13,9 @@ router.use(standardLimiter);
 // [2026-03-13 Bugfix] Normalize incoming submissions so the backend can derive
 // authoritative scores from raw gameplay data even when clients send nested
 // `gameData` payloads.
+// Valid session types
+const VALID_SESSION_TYPES = ['solo_training', 'vs_friends', 'vs_random', 'vs_mixed'];
+
 function normalizeGameSubmission(gameId, requestBody = {}) {
   const source = requestBody.gameData && typeof requestBody.gameData === 'object'
     ? requestBody.gameData
@@ -46,9 +49,16 @@ function normalizeGameSubmission(gameId, requestBody = {}) {
 
   const perfectRaw = source.perfect ?? requestBody.perfect;
 
+  // Determine session type: default to solo_training when no lobbyId present
+  const rawSessionType = requestBody.sessionType || requestBody.session_type;
+  const sessionType = VALID_SESSION_TYPES.includes(rawSessionType)
+    ? rawSessionType
+    : requestBody.lobbyId ? 'vs_random' : 'solo_training';
+
   return {
     gameId,
-    lobbyId: requestBody.lobbyId,
+    lobbyId: requestBody.lobbyId || null,
+    sessionType,
     // [2026-03-13 Integration] Preserve the client-provided score separately
     // for debugging/telemetry while still deriving the authoritative score from
     // gameplay metrics below.
@@ -192,8 +202,10 @@ router.get('/', async (req, res, next) => {
 });
 
 // POST /api/games/:id/submit - Submit game result
+// Supports both multiplayer (lobbyId required) and solo training (lobbyId optional)
 router.post('/:id/submit', [
-  body('lobbyId').isUUID(),
+  body('lobbyId').optional().isUUID(),
+  body('sessionType').optional().isIn(VALID_SESSION_TYPES),
   body('score').optional().isNumeric(),
   body('timeTaken').optional().isNumeric(),
   body('hintsUsed').optional().isNumeric(),
@@ -216,27 +228,28 @@ router.post('/:id/submit', [
     validateRequiredGameplayMetrics(gameId, req.body);
 
     const submission = normalizeGameSubmission(gameId, req.body);
-    const { lobbyId, submittedScore, timeTaken, hintsUsed, perfect } = submission;
+    const { lobbyId, sessionType, submittedScore, timeTaken, hintsUsed, perfect } = submission;
     const userId = req.user.id;
 
-    // Validate game exists in lobby
-    const lobbyCheck = await query(
-      `SELECT id FROM lobbies WHERE id = $1 AND status = 'playing'`,
-      [lobbyId]
-    );
+    // Only validate lobby membership for multiplayer sessions
+    if (lobbyId) {
+      const lobbyCheck = await query(
+        `SELECT id FROM lobbies WHERE id = $1 AND status = 'playing'`,
+        [lobbyId]
+      );
 
-    if (lobbyCheck.rows.length === 0) {
-      throw new AppError('Lobby not found or not in playing state', 404);
-    }
+      if (lobbyCheck.rows.length === 0) {
+        throw new AppError('Lobby not found or not in playing state', 404);
+      }
 
-    // Validate player is in lobby
-    const playerCheck = await query(
-      `SELECT id FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
-      [lobbyId, userId]
-    );
+      const playerCheck = await query(
+        `SELECT id FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
+        [lobbyId, userId]
+      );
 
-    if (playerCheck.rows.length === 0) {
-      throw new AppError('Player not in lobby', 403);
+      if (playerCheck.rows.length === 0) {
+        throw new AppError('Player not in lobby', 403);
+      }
     }
 
     // [2026-03-13 Security] Derive the score from normalized gameplay data on
@@ -245,19 +258,16 @@ router.post('/:id/submit', [
 
     // Save game result
     const result = await transaction(async (client) => {
-      // Insert game result
       const gameResult = await client.query(
-        `INSERT INTO game_results (lobby_id, user_id, game_id, score, time_taken, hints_used, perfect, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        `INSERT INTO game_results
+           (lobby_id, user_id, game_id, score, time_taken, hints_used, perfect, session_type, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
          RETURNING *`,
-        [lobbyId, userId, gameId, validatedScore, timeTaken, hintsUsed, perfect || false]
+        [lobbyId, userId, gameId, validatedScore, timeTaken, hintsUsed, perfect || false, sessionType]
       );
 
-      // [2026-03-14 Bugfix] Rely on DB trigger to update users.total_score.
-      // The database schema defines a trigger that increments users.total_score
-      // whenever a row is inserted into game_results. Performing a manual
-      // UPDATE here would double-count scores, so we intentionally do not
-      // adjust total_score in application code.
+      // [2026-03-14 Bugfix] Rely on DB trigger to update users.total_score and
+      // game_high_scores. Do not manually update these here to avoid double-counts.
 
       return gameResult.rows[0];
     });
@@ -270,7 +280,133 @@ router.post('/:id/submit', [
         originalScore: submittedScore,
         timeTaken: result.time_taken,
         hintsUsed: result.hints_used,
-        perfect: result.perfect
+        perfect: result.perfect,
+        sessionType: result.session_type
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// POST /api/games/:id/events - Record in-game telemetry events
+// Called by the client during gameplay to stream granular event data
+router.post('/:id/events', [
+  body('gameResultId').isUUID(),
+  body('events').isArray({ min: 1, max: 100 }),
+  body('events.*.eventType').isString().notEmpty(),
+  body('events.*.payload').optional().isObject(),
+  body('events.*.occurredAt').optional().isISO8601()
+], async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Validation failed', errors: errors.array() }
+      });
+    }
+
+    const userId = req.user.id;
+    const { gameResultId, events } = req.body;
+
+    // Verify the game result belongs to this user
+    const ownerCheck = await query(
+      'SELECT id FROM game_results WHERE id = $1 AND user_id = $2',
+      [gameResultId, userId]
+    );
+
+    if (ownerCheck.rows.length === 0) {
+      throw new AppError('Game result not found', 404);
+    }
+
+    // Batch insert events
+    if (events.length > 0) {
+      const placeholders = events.map((_, i) => {
+        const base = i * 5;
+        return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5})`;
+      }).join(', ');
+
+      const values = events.flatMap(e => [
+        gameResultId,
+        userId,
+        e.eventType,
+        JSON.stringify(e.payload || {}),
+        e.occurredAt || new Date().toISOString()
+      ]);
+
+      await query(
+        `INSERT INTO game_events (game_result_id, user_id, event_type, payload, occurred_at)
+         VALUES ${placeholders}`,
+        values
+      );
+    }
+
+    res.status(201).json({ success: true, data: { recorded: events.length } });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// GET /api/games/:id/results - Get game results for a specific game in a lobby
+router.get('/:id/results', async (req, res, next) => {
+  try {
+    const { id: gameId } = req.params;
+    const { lobbyId } = req.query;
+
+    if (!lobbyId) {
+      throw new AppError('lobbyId query parameter required', 400);
+    }
+
+    // Get all game results for this game in this lobby
+    const results = await query(
+      `SELECT
+         gr.id,
+         gr.user_id,
+         u.display_name,
+         u.avatar_url,
+         gr.score,
+         gr.time_taken,
+         gr.hints_used,
+         gr.perfect,
+         gr.created_at
+       FROM game_results gr
+       JOIN users u ON gr.user_id = u.id
+       WHERE gr.game_id = $1 AND gr.lobby_id = $2
+       ORDER BY gr.score DESC, gr.time_taken ASC`,
+      [gameId, lobbyId]
+    );
+
+    if (results.rows.length === 0) {
+      throw new AppError('No results found for this game', 404);
+    }
+
+    // Determine winner (highest score, fastest time as tiebreaker)
+    const winnerResult = results.rows[0];
+
+    res.json({
+      success: true,
+      data: {
+        gameId,
+        gameName: 'Game', // Could be enhanced to fetch from game catalog
+        lobbyId,
+        results: results.rows.map(row => ({
+          resultId: row.id,
+          userId: row.user_id,
+          displayName: row.display_name,
+          avatarUrl: row.avatar_url,
+          score: row.score,
+          timeTaken: row.time_taken,
+          hintsUsed: row.hints_used,
+          perfect: row.perfect,
+          completedAt: row.created_at
+        })),
+        winner: {
+          userId: winnerResult.user_id,
+          displayName: winnerResult.display_name,
+          score: winnerResult.score
+        },
+        timestamp: new Date().toISOString()
       }
     });
   } catch (error) {

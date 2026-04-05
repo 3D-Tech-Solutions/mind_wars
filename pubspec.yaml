@@ -26,6 +26,9 @@ dependencies:
   shared_preferences: ^2.2.0
   sqflite: ^2.3.0
   path_provider: ^2.1.0
+
+  # Image Handling
+  image_picker: ^0.8.9
   
   # [2026-03-31 Integration] Lottie JSON renderer for the 4 branded motion assets:
   #   assets/branding/animations/anim_splash-assembly_1080x2340.json  (splash intro)
@@ -37,7 +40,7 @@ dependencies:
   
   # [2026-03-31 Integration] Video playback for original MP4 placeholders in
   # assets/branding/animations/ — kept for fallback until Lottie is wired everywhere.
-  video_player: ^2.8.3
+  video_player: ^2.7.2
   
   # Utilities
   uuid: ^3.0.7

@@ -206,14 +206,18 @@ module.exports = (io, socket) => {
         totalVotes: parseInt(r.total_votes)
       }));
 
+      // Get the top-ranked game for auto-start
+      const selectedGameId = votingResults.length > 0 ? votingResults[0].gameId : null;
+
       // Notify all players
       io.to(`lobby:${lobbyId}`).emit('voting-ended', {
         votingId,
         results: votingResults,
+        selectedGameId,  // Top-ranked game ID for automatic game start
         timestamp: new Date().toISOString()
       });
 
-      logger.info(`Voting ended in lobby ${lobbyId} by host ${socket.userId}`);
+      logger.info(`Voting ended in lobby ${lobbyId} by host ${socket.userId}. Selected game: ${selectedGameId}`);
 
       callback({ success: true, results: votingResults });
     } catch (error) {

@@ -1,13 +1,8 @@
-/**
- * Rotation Master Game Widget - Alpha Implementation
- * Identify rotated shapes and objects
- * 
- * Category: Spatial
- * Players: 2-8
- */
+import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'dart:math';
+
+import '../rotation_master/rotation_master_engine.dart';
 import 'base_game_widget.dart';
 
 class RotationMasterGame extends BaseGameWidget {
@@ -15,158 +10,241 @@ class RotationMasterGame extends BaseGameWidget {
     Key? key,
     required OnGameComplete onGameComplete,
     required OnScoreUpdate onScoreUpdate,
+    this.seed = 'offline_rotation_master_practice_v1',
+    this.difficulty = 'medium',
+    this.challengeSet,
+    this.onSubmissionReady,
   }) : super(
           key: key,
           onGameComplete: onGameComplete,
           onScoreUpdate: onScoreUpdate,
         );
 
+  final String seed;
+  final String difficulty;
+  final Map<String, dynamic>? challengeSet;
+  final ValueChanged<Map<String, dynamic>>? onSubmissionReady;
+
   @override
   State<RotationMasterGame> createState() => _RotationMasterGameState();
 }
 
 class _RotationMasterGameState extends BaseGameState<RotationMasterGame> {
-  late String _targetShape;
-  late double _targetRotation;
-  late int _correctOption;
-  late List<double> _options;
+  late final Map<String, dynamic> _challengeSet;
+  late final List<Map<String, dynamic>> _prompts;
+  int _promptIndex = 0;
   int _streak = 0;
-  int _level = 1;
+  final Set<int> _selectedIndices = <int>{};
+  final List<Map<String, dynamic>> _responses = <Map<String, dynamic>>[];
+  late final DateTime _gameStartedAt;
+  late DateTime _promptStartedAt;
 
-  final List<String> _shapes = ['F', 'R', 'P', 'L', 'Z', 'N', 'G', 'J'];
+  Map<String, dynamic> get _prompt => _prompts[_promptIndex];
+  int get _correctOptionIndex => _prompt['correctOptionIndex'] as int;
 
   @override
   void initState() {
     super.initState();
-    _generateRound();
+    _challengeSet = widget.challengeSet ??
+        RotationMasterEngine.generateChallengeSet(
+          seed: widget.seed,
+          difficulty: widget.difficulty,
+          promptCount: 6,
+        );
+    _prompts = (_challengeSet['prompts'] as List)
+        .map((prompt) => Map<String, dynamic>.from(prompt as Map))
+        .toList();
+    _gameStartedAt = DateTime.now();
+    _promptStartedAt = _gameStartedAt;
   }
 
-  void _generateRound() {
-    final random = Random();
-    _targetShape = _shapes[random.nextInt(_shapes.length)];
-    _targetRotation = (random.nextInt(4) * 90).toDouble();
-
-    // Generate all possible rotations
-    List<double> allRotations = [0, 90, 180, 270];
-    // Remove the target rotation to get distractors
-    List<double> distractors = List.from(allRotations)..remove(_targetRotation);
-    // Shuffle distractors and pick three
-    distractors.shuffle(random);
-    List<double> options = distractors.take(3).toList();
-    // Insert the correct answer at a random position
-    _correctOption = random.nextInt(4);
-    options.insert(_correctOption, _targetRotation);
-    _options = options;
-    setState(() {});
+  void _onOptionTapped(int index) {
+    _selectedIndices
+      ..clear()
+      ..add(index);
+    _submitAnswer();
   }
 
-  void _selectOption(int optionIndex) {
-    if (optionIndex == _correctOption) {
+  void _submitAnswer() {
+    if (_selectedIndices.isEmpty) {
+      return;
+    }
+
+    final selectedOptionIndex = _selectedIndices.first;
+    final isCorrect = selectedOptionIndex == _correctOptionIndex;
+    final responseTimeMs = DateTime.now().difference(_promptStartedAt).inMilliseconds;
+    final promptChecksum = _prompt['canonicalChecksum'] as String;
+
+    if (isCorrect) {
       _streak++;
-      final points = 10 + (_streak * 2);
+      final points = 12 + (_streak * 3) + (_prompt['dimension'] as int);
       addScore(points);
-      showMessage('Correct! +$points points (${_streak}x streak)', success: true);
-      _level++;
-
-      if (_level > 3) {
-        completeGame();
-      } else {
-        _generateRound();
-      }
+      showMessage('Correct! +$points points', success: true);
     } else {
       _streak = 0;
-      showMessage('Wrong! Streak reset');
-      _generateRound();
+      showMessage('Not quite. That set included a mirrored distractor.');
     }
+
+    _responses.add({
+      'roundIndex': _promptIndex,
+      'promptChecksum': promptChecksum,
+      'selectedOptionIndex': selectedOptionIndex,
+      'correctOptionIndex': _correctOptionIndex,
+      'isCorrect': isCorrect,
+      'responseTimeMs': responseTimeMs,
+    });
+
+    if (_promptIndex >= _prompts.length - 1) {
+      final totalTimeMs = DateTime.now().difference(_gameStartedAt).inMilliseconds;
+      final submission = RotationMasterEngine.buildSubmissionPayload(
+        challengeSet: _challengeSet,
+        responses: _responses,
+        totalTimeMs: totalTimeMs,
+        score: score,
+      );
+      widget.onSubmissionReady?.call(submission);
+      completeGame();
+      return;
+    }
+
+    setState(() {
+      _promptIndex++;
+      _selectedIndices.clear();
+      _promptStartedAt = DateTime.now();
+    });
   }
 
   @override
   Widget buildGame(BuildContext context) {
+    final options = (_prompt['options'] as List).cast<Map<String, dynamic>>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final progress = '${_promptIndex + 1}/${_prompts.length}';
+
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           Card(
             child: Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _HeaderStat(label: 'Round', value: progress),
+                  _HeaderStat(label: 'Streak', value: '$_streak'),
+                  _HeaderStat(
+                    label: 'Shape',
+                    value: '${_prompt['dimension']}D',
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Select the one option that is the same shape in a new orientation',
+            style: Theme.of(context).textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            flex: 3,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+                color: colorScheme.surfaceContainerHighest,
+              ),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Level $_level',
-                    style: Theme.of(context).textTheme.headlineMedium,
+                    '${_prompt['family']}',
+                    style: Theme.of(context).textTheme.labelLarge,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Streak: ${_streak}x',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: _streak > 0 ? Colors.green : null,
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: _ShapePanel(
+                      segments: (_prompt['target']['segments'] as List)
+                          .map((segment) => (segment as List).cast<int>())
+                          .toList(),
+                      viewBox: Map<String, int>.from(
+                        (_prompt['target']['viewBox'] as Map).cast<String, int>(),
+                      ),
+                      strokeColor: colorScheme.onSurface,
                     ),
                   ),
                 ],
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          Text(
-            'Find the matching rotation:',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
           const SizedBox(height: 16),
-          Container(
-            width: 120,
-            height: 120,
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Center(
-              child: Transform.rotate(
-                angle: _targetRotation * pi / 180,
-                child: Text(
-                  _targetShape,
-                  style: TextStyle(
-                    fontSize: 72,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 32),
           Expanded(
+            flex: 4,
             child: GridView.builder(
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
-                childAspectRatio: 1,
                 crossAxisSpacing: 16,
                 mainAxisSpacing: 16,
+                childAspectRatio: 1,
               ),
-              itemCount: 4,
+              itemCount: options.length,
               itemBuilder: (context, index) {
+                final option = options[index];
+                final isSelected = _selectedIndices.contains(index);
                 return GestureDetector(
-                  onTap: () => _selectOption(index),
-                  child: Container(
+                  onTap: () => _onOptionTapped(index),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 120),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondaryContainer,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
+                      color: isSelected
+                          ? colorScheme.primaryContainer
+                          : colorScheme.secondaryContainer,
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.outline,
-                        width: 2,
+                        color: isSelected
+                            ? colorScheme.primary
+                            : colorScheme.outlineVariant,
+                        width: isSelected ? 3 : 1.5,
                       ),
                     ),
-                    child: Center(
-                      child: Transform.rotate(
-                        angle: _options[index] * pi / 180,
-                        child: Text(
-                          _targetShape,
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.onSecondaryContainer,
+                    padding: const EdgeInsets.all(14),
+                    child: Stack(
+                      children: [
+                        Positioned.fill(
+                          child: _ShapePanel(
+                            segments: (option['segments'] as List)
+                                .map((segment) => (segment as List).cast<int>())
+                                .toList(),
+                            viewBox: Map<String, int>.from(
+                              (option['viewBox'] as Map).cast<String, int>(),
+                            ),
+                            strokeColor: isSelected
+                                ? colorScheme.onPrimaryContainer
+                                : colorScheme.onSecondaryContainer,
                           ),
                         ),
-                      ),
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: CircleAvatar(
+                            radius: 14,
+                            backgroundColor: isSelected
+                                ? colorScheme.primary
+                                : colorScheme.surface,
+                            child: Text(
+                              String.fromCharCode(65 + index),
+                              style: TextStyle(
+                                color: isSelected
+                                    ? colorScheme.onPrimary
+                                    : colorScheme.onSurface,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );
@@ -176,5 +254,101 @@ class _RotationMasterGameState extends BaseGameState<RotationMasterGame> {
         ],
       ),
     );
+  }
+}
+
+class _HeaderStat extends StatelessWidget {
+  const _HeaderStat({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ShapePanel extends StatelessWidget {
+  const _ShapePanel({
+    required this.segments,
+    required this.viewBox,
+    required this.strokeColor,
+  });
+
+  final List<List<int>> segments;
+  final Map<String, int> viewBox;
+  final Color strokeColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      painter: _ShapePainter(
+        segments: segments,
+        viewBox: viewBox,
+        strokeColor: strokeColor,
+      ),
+      child: const SizedBox.expand(),
+    );
+  }
+}
+
+class _ShapePainter extends CustomPainter {
+  const _ShapePainter({
+    required this.segments,
+    required this.viewBox,
+    required this.strokeColor,
+  });
+
+  final List<List<int>> segments;
+  final Map<String, int> viewBox;
+  final Color strokeColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = strokeColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round;
+
+    final width = max(1, viewBox['width'] ?? 1).toDouble();
+    final height = max(1, viewBox['height'] ?? 1).toDouble();
+    final scale = min(size.width / width, size.height / height) * 0.82;
+    final offsetX = (size.width - (width * scale)) / 2;
+    final offsetY = (size.height - (height * scale)) / 2;
+
+    for (final segment in segments) {
+      final start = Offset(
+        offsetX + (segment[0] * scale),
+        offsetY + (segment[1] * scale),
+      );
+      final end = Offset(
+        offsetX + (segment[2] * scale),
+        offsetY + (segment[3] * scale),
+      );
+      canvas.drawLine(start, end, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ShapePainter oldDelegate) {
+    return oldDelegate.segments != segments ||
+        oldDelegate.viewBox != viewBox ||
+        oldDelegate.strokeColor != strokeColor;
   }
 }

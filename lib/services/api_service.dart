@@ -99,15 +99,19 @@ class ApiService {
   }
 
   /// Check if username is available
+  /// If userId is provided, excludes that user from the check (for edit-profile scenarios)
   /// Returns {'available': true/false, 'username': suggested_username_if_taken}
-  Future<Map<String, dynamic>> checkUsernameAvailability(String username) async {
+  Future<Map<String, dynamic>> checkUsernameAvailability(String username, {String? userId}) async {
     try {
       final url = '$baseUrl/auth/check-username';
-      print('[API] Checking username availability: $username');
+      print('[API] Checking username availability: $username${userId != null ? ' (excluding $userId)' : ''}');
+      final body = <String, dynamic>{'username': username};
+      if (userId != null) body['userId'] = userId;
+
       final response = await http.post(
         Uri.parse(url),
         headers: _headers,
-        body: jsonEncode({'username': username}),
+        body: jsonEncode(body),
       ).timeout(const Duration(seconds: 5));
 
       if (response.statusCode == 200) {
@@ -327,7 +331,7 @@ class ApiService {
     String userId,
     Map<String, dynamic> updates,
   ) async {
-    final response = await http.put(
+    final response = await http.patch(
       Uri.parse('$baseUrl/users/$userId'),
       headers: _headers,
       body: jsonEncode(updates),
@@ -336,17 +340,57 @@ class ApiService {
     return _handleResponse(response);
   }
 
-  /// Update profile (convenience method for profile setup)
+  /// Update profile (convenience method for profile setup/edit)
+  /// Supports: username (unique), displayName (non-unique), avatar, avatarUrl
   Future<Map<String, dynamic>> updateProfile({
     required String userId,
+    String? username,
     String? displayName,
     String? avatar,
+    String? avatarUrl,
   }) async {
     final updates = <String, dynamic>{};
+    // Send both fields independently - backend handles them separately
+    if (username != null) updates['username'] = username;
     if (displayName != null) updates['displayName'] = displayName;
     if (avatar != null) updates['avatar'] = avatar;
-    
+    if (avatarUrl != null) updates['avatarUrl'] = avatarUrl;
+
     return updateUserProfile(userId, updates);
+  }
+
+  /// Upload custom avatar image
+  /// Returns the updated user object with new avatarUrl
+  Future<Map<String, dynamic>> uploadAvatarImage(
+    String userId,
+    String imagePath,
+  ) async {
+    try {
+      print('[API] Uploading avatar image for user: $userId');
+      print('[API] Image path: $imagePath');
+
+      // Create multipart request
+      final uri = Uri.parse('$baseUrl/users/$userId/avatar');
+      final request = http.MultipartRequest('POST', uri);
+
+      // Add auth header
+      request.headers.addAll(_headers);
+
+      // Add image file
+      request.files.add(
+        await http.MultipartFile.fromPath('avatar', imagePath),
+      );
+
+      // Send request
+      final streamResponse = await request.send();
+      final response = await http.Response.fromStream(streamResponse);
+
+      print('[API] Avatar upload response status: ${response.statusCode}');
+      return _handleResponse(response);
+    } catch (e) {
+      print('[API] Avatar upload error: $e');
+      rethrow;
+    }
   }
 
   /// Get user progress
@@ -358,6 +402,45 @@ class ApiService {
 
     final data = _handleResponse(response);
     return UserProgress.fromJson(data['progress']);
+  }
+
+  // ============== Personal Profile Info ==============
+
+  /// Get user personal profile (firstName, lastName, DOB, gender, bio, location)
+  Future<Map<String, dynamic>> getPersonalProfile(String userId) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/users/$userId/profile'),
+      headers: _headers,
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Update user personal profile
+  Future<Map<String, dynamic>> updatePersonalProfile(
+    String userId, {
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? gender,
+    String? bio,
+    String? location,
+  }) async {
+    final updates = <String, dynamic>{};
+    if (firstName != null) updates['firstName'] = firstName;
+    if (lastName != null) updates['lastName'] = lastName;
+    if (dateOfBirth != null) updates['dateOfBirth'] = dateOfBirth;
+    if (gender != null) updates['gender'] = gender;
+    if (bio != null) updates['bio'] = bio;
+    if (location != null) updates['location'] = location;
+
+    final response = await http.patch(
+      Uri.parse('$baseUrl/users/$userId/profile'),
+      headers: _headers,
+      body: jsonEncode(updates),
+    );
+
+    return _handleResponse(response);
   }
 
   // ============== Sync (Offline-First) ==============

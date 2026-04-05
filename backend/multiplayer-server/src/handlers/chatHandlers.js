@@ -171,4 +171,35 @@ module.exports = (io, socket) => {
       callback({ success: false, error: error.message });
     }
   });
+
+  // Send typing indicator
+  socket.on('typing-indicator', async (data, callback) => {
+    try {
+      const { lobbyId, isTyping } = data;
+
+      // Verify player is in lobby
+      const playerResult = await query(
+        `SELECT id FROM lobby_players WHERE lobby_id = $1 AND user_id = $2`,
+        [lobbyId, socket.userId]
+      );
+
+      if (playerResult.rows.length === 0) {
+        return callback({ success: false, error: 'Player not in lobby' });
+      }
+
+      // Broadcast typing status to other players in the lobby
+      socket.to(`lobby:${lobbyId}`).emit('player-typing', {
+        userId: socket.userId,
+        isTyping: isTyping,
+        timestamp: new Date().toISOString()
+      });
+
+      logger.info(`Typing indicator in lobby ${lobbyId} from user ${socket.userId}: ${isTyping}`);
+
+      callback({ success: true });
+    } catch (error) {
+      logger.error('Typing indicator error', error);
+      callback({ success: false, error: error.message });
+    }
+  });
 };

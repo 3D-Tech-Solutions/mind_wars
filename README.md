@@ -58,7 +58,7 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 
 #### 🗺️ Spatial Games
 - Puzzle Race - Complete jigsaw puzzles
-- Rotation Master - Identify rotated shapes
+- Rotation Master - Mentally rotate procedurally generated 2D/3D/4D wireframes to match the target pose under seeded, multiplayer-validated conditions
 - Path Finder - Navigate mazes efficiently
 
 #### 📚 Language Games

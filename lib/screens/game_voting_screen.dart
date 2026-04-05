@@ -37,6 +37,8 @@ class _GameVotingScreenState extends State<GameVotingScreen>
   late AnimationController _animationController;
   Map<String, int> _localVotes = {};
   bool _isSubmitting = false;
+  bool _isReady = false;
+  bool _isMarkingReady = false;
   String _searchQuery = '';
   CognitiveCategory? _filterCategory;
   final TextEditingController _searchController = TextEditingController();
@@ -122,6 +124,18 @@ class _GameVotingScreenState extends State<GameVotingScreen>
           data['playerNameSkipped'] ?? 'Player',
           isTimeBased: true,
         );
+      }
+    });
+
+    // Phase 2: Listen for voting ended
+    widget.multiplayerService.on('voting-ended', (data) {
+      if (!mounted) return;
+      final selectedGameId = data['selectedGameId'] as String?;
+      if (selectedGameId != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Voting ended! Selected game: $selectedGameId')),
+        );
+        Navigator.of(context).pop(selectedGameId);
       }
     });
   }
@@ -893,31 +907,65 @@ class _GameVotingScreenState extends State<GameVotingScreen>
                   ),
                 ),
               ),
-            SizedBox(
-              width: double.infinity,
-              height: 56,
-              child: ElevatedButton(
-                onPressed: canSubmit ? _submitVotes : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurple,
-                  disabledBackgroundColor: Colors.grey.shade300,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            if (!_isReady) ...[
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: canSubmit ? _submitVotes : null,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: _isSubmitting
+                      ? BrandAnimations.loadingSpinner(size: 24)
+                      : Text(
+                          widget.votingService.allPlayersVoted
+                              ? 'Waiting for Others...'
+                              : 'Confirm Votes',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                ),
+              ),
+            ] else ...[
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton.icon(
+                  onPressed: _isMarkingReady ? null : _markPlayerReady,
+                  icon: _isMarkingReady
+                      ? SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.check_circle),
+                  label: Text(
+                    _isMarkingReady ? 'Marking ready...' : 'Lock In & Ready',
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    disabledBackgroundColor: Colors.grey.shade300,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
-                child: _isSubmitting
-                    ? BrandAnimations.loadingSpinner(size: 24)
-                    : Text(
-                        widget.votingService.allPlayersVoted
-                            ? 'Waiting for Others...'
-                            : 'Confirm Votes',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
               ),
-            ),
+            ],
           ],
         ),
       ),
@@ -1007,13 +1055,16 @@ class _GameVotingScreenState extends State<GameVotingScreen>
       );
 
       if (mounted) {
+        setState(() {
+          _isReady = true;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Votes submitted successfully!'),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Check if all players have voted
         if (widget.votingService.allPlayersVoted) {
           _showAllVotedDialog();
@@ -1037,6 +1088,37 @@ class _GameVotingScreenState extends State<GameVotingScreen>
     }
   }
 
+  Future<void> _markPlayerReady() async {
+    setState(() {
+      _isMarkingReady = true;
+    });
+
+    try {
+      await widget.multiplayerService.setPlayerReady(widget.lobbyId);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You are ready! Waiting for all players...'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error marking ready: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() {
+          _isMarkingReady = false;
+        });
+      }
+    }
+  }
+
   void _showAllVotedDialog() {
     showDialog(
       context: context,
@@ -1044,7 +1126,7 @@ class _GameVotingScreenState extends State<GameVotingScreen>
       builder: (context) => AlertDialog(
         title: const Text('All Votes In!'),
         content: const Text(
-          'All players have voted. The host can now end voting and start the games.',
+          'All players have voted. Now lock in your votes and mark yourself as ready!',
         ),
         actions: [
           TextButton(

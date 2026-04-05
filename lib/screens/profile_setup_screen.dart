@@ -13,6 +13,7 @@ import '../services/auth_service.dart';
 import '../services/api_service.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
+import '../utils/validators.dart';
 import '../widgets/branded_avatar.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -25,7 +26,6 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
-  final _displayNameController = TextEditingController();
 
   String? _selectedAvatar;
   bool _isLoading = false;
@@ -70,13 +70,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         _usernameController.text = emailPrefix;
       }
 
-      // Use email as display name initially
-      if (currentUser.displayName?.trim().isNotEmpty ?? false) {
-        _displayNameController.text = currentUser.displayName!.trim();
-      } else if (currentUser.email != null) {
-        _displayNameController.text = currentUser.email!.split('@')[0];
-      }
-
       if (currentUser.avatar != null && currentUser.avatar!.isNotEmpty) {
         _selectedAvatar = currentUser.avatar;
       }
@@ -88,7 +81,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   @override
   void dispose() {
     _usernameController.dispose();
-    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -108,7 +100,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     try {
       final apiService = Provider.of<ApiService>(context, listen: false);
-      final result = await apiService.checkUsernameAvailability(username);
+      final authService = Provider.of<AuthService>(context, listen: false);
+      final userId = authService.currentUser?.id;
+
+      final result = await apiService.checkUsernameAvailability(username, userId: userId);
 
       if (!mounted) return;
 
@@ -175,7 +170,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       /// Username is now collected during profile setup and stored with display name.
       /// This keeps alpha mode local-first while preserving the backend update path.
       await authService.updateProfile(
-        displayName: _usernameController.text.trim(),  // Use chosen username as display name
+        username: _usernameController.text.trim(),
         avatar: _selectedAvatar!,
       );
 
@@ -279,21 +274,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                                 ? const Icon(Icons.cancel, color: Colors.red)
                                 : null,
                   ),
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Username is required';
-                    }
-                    if (value.length < 3) {
-                      return 'Username must be at least 3 characters';
-                    }
-                    if (value.length > 20) {
-                      return 'Username must be less than 20 characters';
-                    }
-                    if (!RegExp(r'^[a-zA-Z0-9_-]+$').hasMatch(value)) {
-                      return 'Username can only contain letters, numbers, _ and -';
-                    }
-                    return null;
-                  },
+                  validator: Validators.validateUsername,
                   onChanged: (value) {
                     _checkUsernameAvailability(value);
                   },
@@ -330,32 +311,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                     ),
                   ),
 
-                const SizedBox(height: 24),
-
-                // Display name field (optional, shown as fallback)
-                TextFormField(
-                  controller: _displayNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Display Name (Optional)',
-                    hintText: 'Enter a display name',
-                    prefixIcon: Icon(Icons.badge),
-                    border: OutlineInputBorder(),
-                    helperText: 'Optional - for your profile. Defaults to your username.',
-                  ),
-                  validator: (value) {
-                    if (value != null && value.isNotEmpty) {
-                      if (value.length < 2) {
-                        return 'Display name must be at least 2 characters';
-                      }
-                      if (value.length > 30) {
-                        return 'Display name must be less than 30 characters';
-                      }
-                    }
-                    return null;
-                  },
-                  enabled: !_isLoading,
-                ),
-                
                 const SizedBox(height: 32),
                 
                 // Avatar selection

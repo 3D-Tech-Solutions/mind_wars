@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/models.dart';
 import '../services/multiplayer_service.dart';
 import '../widgets/chat_widgets.dart';
+import '../utils/build_config.dart';
 
 class ChatScreen extends StatefulWidget {
   final String lobbyId;
@@ -27,17 +28,31 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    _multiplayerService = MultiplayerService(
-      lobbyId: widget.lobbyId,
-      onChatMessageReceived: _handleChatMessage,
-      onTypingStatusReceived: _handleTypingStatus,
+    _multiplayerService = MultiplayerService();
+
+    // Setup event listeners before connecting
+    _multiplayerService.on('chat-message', (data) {
+      _handleChatMessage(ChatMessage.fromJson(data));
+    });
+
+    _multiplayerService.on('player-typing', (data) {
+      final userId = data['userId'] as String?;
+      final isTyping = data['isTyping'] as bool?;
+      if (userId != null && isTyping != null) {
+        _handleTypingStatus(userId, isTyping);
+      }
+    });
+
+    // Connect to multiplayer server
+    _multiplayerService.connect(
+      BuildConfig.wsBaseUrl,
+      widget.currentUserId,
     );
-    _multiplayerService.connect();
   }
 
   @override
   void dispose() {
-    _multiplayerService.dispose();
+    _multiplayerService.disconnect();
     _scrollController.dispose();
     super.dispose();
   }
@@ -59,11 +74,11 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _sendMessage(String message) {
-    _multiplayerService.sendChatMessage(message);
+    _multiplayerService.sendMessage(message);
   }
 
   void _onTypingStatusChanged(bool isTyping) {
-    _multiplayerService.sendTypingStatus(isTyping);
+    _multiplayerService.sendTypingIndicator(isTyping);
   }
 
   @override

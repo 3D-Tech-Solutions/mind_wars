@@ -212,6 +212,8 @@ class _OfflineGamePlayScreenState extends State<OfflineGamePlayScreen> {
         return RotationMasterGame(
           onGameComplete: _onGameComplete,
           onScoreUpdate: _onScoreUpdate,
+          seed: '${widget.gameTemplate.id}_single_player_v1',
+          difficulty: 'medium',
         );
       case 'path_finder':
         return PathFinderGame(

@@ -257,3 +257,57 @@ CREATE TABLE IF NOT EXISTS vote_to_skip_votes (
 
 CREATE INDEX idx_vote_to_skip_votes_session_id ON vote_to_skip_votes(session_id);
 CREATE INDEX idx_vote_to_skip_votes_voter_id ON vote_to_skip_votes(voter_id);
+
+-- ============================================================================
+-- Phase 2 Extensions: Mind War Configuration & Immutable Payloads
+-- ============================================================================
+
+-- Extend lobbies table with Phase 2 configuration fields
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS difficulty VARCHAR(10) DEFAULT 'medium';
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS hint_policy VARCHAR(20) DEFAULT 'enabled';
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS ranked BOOLEAN DEFAULT false;
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS game_pack VARCHAR(50) DEFAULT NULL;
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS mind_war_id UUID DEFAULT NULL;
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS scoring_model_version VARCHAR(20) DEFAULT '1.0';
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS payload_locked BOOLEAN DEFAULT false;
+ALTER TABLE lobbies ADD COLUMN IF NOT EXISTS payload_locked_at TIMESTAMPTZ DEFAULT NULL;
+
+-- Create indices on Phase 2 fields
+CREATE INDEX IF NOT EXISTS idx_lobbies_mind_war_id ON lobbies(mind_war_id);
+CREATE INDEX IF NOT EXISTS idx_lobbies_payload_locked ON lobbies(payload_locked);
+
+-- Extend lobby_players table with ready state tracking
+ALTER TABLE lobby_players ADD COLUMN IF NOT EXISTS is_ready BOOLEAN DEFAULT false;
+ALTER TABLE lobby_players ADD COLUMN IF NOT EXISTS ready_at TIMESTAMPTZ DEFAULT NULL;
+
+-- Index ready state for fast queries
+CREATE INDEX IF NOT EXISTS idx_lobby_players_is_ready ON lobby_players(lobby_id, is_ready);
+
+-- Immutable Mind War Payloads table
+-- Stores the locked game sequence with deterministic indices for pixel-perfect cloned gameplay
+CREATE TABLE IF NOT EXISTS mind_war_payloads (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    lobby_id UUID NOT NULL UNIQUE REFERENCES lobbies(id) ON DELETE CASCADE,
+    mind_war_id UUID NOT NULL UNIQUE,
+
+    -- Full game sequence as JSONB for flexible schema evolution
+    -- Structure: [{roundNumber, gameId, difficulty, hintPolicy, gameIndex, seed}, ...]
+    -- gameIndex: unique integer seed for deterministic game state generation
+    -- seed: string seed derived from mind_war_id + round + gameIndex
+    game_sequence JSONB NOT NULL,
+
+    -- Convenience columns for queries (denormalized from game_sequence for performance)
+    difficulty VARCHAR(10) NOT NULL,
+    hint_policy VARCHAR(20) NOT NULL,
+    ranked BOOLEAN NOT NULL,
+    scoring_model_version VARCHAR(20) NOT NULL DEFAULT '1.0',
+
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    locked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Create indices for fast payload lookups
+CREATE INDEX IF NOT EXISTS idx_mind_war_payloads_lobby_id ON mind_war_payloads(lobby_id);
+CREATE INDEX IF NOT EXISTS idx_mind_war_payloads_mind_war_id ON mind_war_payloads(mind_war_id);
+CREATE INDEX IF NOT EXISTS idx_mind_war_payloads_ranked ON mind_war_payloads(ranked);

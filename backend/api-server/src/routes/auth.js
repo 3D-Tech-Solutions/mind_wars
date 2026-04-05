@@ -7,9 +7,28 @@ const { AppError } = require('../middleware/errorHandler');
 const { authLimiter } = require('../middleware/rateLimit');
 const { authenticate } = require('../middleware/auth');
 const { createLogger } = require('../utils/logger');
+const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 
 const router = express.Router();
 const logger = createLogger('auth-routes');
+
+// Helper function to get avatar checksum
+const getAvatarChecksum = (avatarUrl) => {
+  if (!avatarUrl || !avatarUrl.startsWith('/uploads/avatars/')) {
+    return null;
+  }
+  try {
+    const uploadsDir = path.join(__dirname, '../../uploads/avatars');
+    const filename = avatarUrl.split('/').pop();
+    const filePath = path.join(uploadsDir, filename);
+    const fileBuffer = fs.readFileSync(filePath);
+    return crypto.createHash('md5').update(fileBuffer).digest('hex');
+  } catch (err) {
+    return null;
+  }
+};
 
 // Validation middleware
 const registerValidation = [
@@ -67,15 +86,34 @@ router.post('/register', authLimiter, registerValidation, async (req, res, next)
     // Hash password
     const passwordHash = await bcrypt.hash(password, parseInt(process.env.BCRYPT_ROUNDS) || 12);
 
+    // Generate default username from email prefix
+    // Users can change this during profile setup
+    const emailPrefix = email.split('@')[0].toLowerCase().replace(/[^a-z0-9_-]/g, '_').slice(0, 20);
+    let defaultUsername = emailPrefix || 'user';
+
+    // If username collision likely, add random suffix
+    let usernameToUse = defaultUsername;
+    let conflict = true;
+    let attempt = 0;
+    while (conflict && attempt < 10) {
+      const checkUsername = attempt === 0 ? usernameToUse : `${usernameToUse}${attempt}`;
+      const taken = await query('SELECT id FROM users WHERE LOWER(username) = LOWER($1)', [checkUsername]);
+      if (taken.rows.length === 0) {
+        usernameToUse = checkUsername;
+        conflict = false;
+      }
+      attempt++;
+    }
+
     // Use provided displayName or default to empty string (will be set during profile setup)
     const finalDisplayName = displayName || '';
 
     // Create user
     const result = await query(
-      `INSERT INTO users (email, password_hash, display_name, created_at, updated_at)
-       VALUES ($1, $2, $3, NOW(), NOW())
-       RETURNING id, email, display_name, created_at`,
-      [email, passwordHash, finalDisplayName]
+      `INSERT INTO users (email, password_hash, username, display_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       RETURNING id, email, username, display_name, created_at`,
+      [email, passwordHash, usernameToUse, finalDisplayName]
     );
 
     const user = result.rows[0];
@@ -91,6 +129,7 @@ router.post('/register', authLimiter, registerValidation, async (req, res, next)
         user: {
           id: user.id,
           email: user.email,
+          username: user.username,
           displayName: user.display_name,
           createdAt: user.created_at
         },
@@ -119,7 +158,7 @@ router.post('/login', authLimiter, loginValidation, async (req, res, next) => {
 
     // Find user
     const result = await query(
-      `SELECT id, email, password_hash, display_name, avatar_url, level, total_score
+      `SELECT id, email, password_hash, username, display_name, avatar_url, level, total_score
        FROM users WHERE email = $1`,
       [email]
     );
@@ -144,14 +183,18 @@ router.post('/login', authLimiter, loginValidation, async (req, res, next) => {
 
     logger.info(`User logged in: ${user.email}`);
 
+    const avatarChecksum = getAvatarChecksum(user.avatar_url);
+
     res.json({
       success: true,
       data: {
         user: {
           id: user.id,
           email: user.email,
+          username: user.username,
           displayName: user.display_name,
           avatarUrl: user.avatar_url,
+          avatarChecksum: avatarChecksum,
           level: user.level,
           totalScore: user.total_score
         },
@@ -244,7 +287,7 @@ router.get('/me', authenticate, async (req, res, next) => {
 // POST /api/auth/check-username - Check if username is available
 router.post('/check-username', async (req, res, next) => {
   try {
-    const { username } = req.body;
+    const { username, userId } = req.body;
 
     if (!username || username.trim().length === 0) {
       return res.status(400).json({
@@ -254,11 +297,17 @@ router.post('/check-username', async (req, res, next) => {
       });
     }
 
-    // Check if username already exists (using display_name field)
-    const result = await query(
-      'SELECT id FROM users WHERE LOWER(display_name) = LOWER($1)',
-      [username.trim()]
-    );
+    // Check if username already exists (using username column, which is unique)
+    // If userId provided (for edit flow), exclude that user from the check
+    let query_text = 'SELECT id FROM users WHERE LOWER(username) = LOWER($1)';
+    const params = [username.trim()];
+
+    if (userId) {
+      query_text += ' AND id != $2';
+      params.push(userId);
+    }
+
+    const result = await query(query_text, params);
 
     const available = result.rows.length === 0;
 

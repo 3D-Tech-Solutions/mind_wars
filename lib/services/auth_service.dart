@@ -39,7 +39,19 @@ class AuthService {
   
   /// Check if running in alpha mode
   bool get isAlphaMode => _isAlphaMode;
-  
+
+  /// Get the current auth token
+  Future<String?> getValidToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString(_tokenKey);
+    if (token != null) {
+      print('[AuthService] Returning stored auth token');
+    } else {
+      print('[AuthService] No auth token found');
+    }
+    return token;
+  }
+
   /// Register a new user
   /// Validates email, password strength, and handles errors
   /// [2025-11-18 Feature] Enhanced with comprehensive logging
@@ -301,27 +313,102 @@ class AuthService {
     }
   }
 
-  /// [2026-03-26 Feature] Update the authenticated user's profile identity.
-  ///
-  /// Profile setup now flows through AuthService so alpha builds can persist the
-  /// display name and avatar locally while backend builds continue to use the API.
-  Future<User> updateProfile({
-    required String displayName,
-    required String avatar,
+  /// Get user's personal profile info (firstName, lastName, DOB, gender, bio, location)
+  Future<Map<String, dynamic>> getPersonalProfile() async {
+    final currentUser = _currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      final response = await _apiService.getPersonalProfile(currentUser.id);
+      return response['data'] ?? {};
+    } catch (e) {
+      print('[AuthService.getPersonalProfile] Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Update user's personal profile info
+  Future<Map<String, dynamic>> updatePersonalProfile({
+    String? firstName,
+    String? lastName,
+    String? dateOfBirth,
+    String? gender,
+    String? bio,
+    String? location,
   }) async {
     final currentUser = _currentUser;
     if (currentUser == null) {
       throw Exception('User not authenticated');
     }
 
+    try {
+      final response = await _apiService.updatePersonalProfile(
+        currentUser.id,
+        firstName: firstName,
+        lastName: lastName,
+        dateOfBirth: dateOfBirth,
+        gender: gender,
+        bio: bio,
+        location: location,
+      );
+      return response['data'] ?? {};
+    } catch (e) {
+      print('[AuthService.updatePersonalProfile] Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Upload custom avatar image for authenticated user
+  Future<User> uploadAvatarImage(String imagePath) async {
+    final currentUser = _currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      final response = await _apiService.uploadAvatarImage(currentUser.id, imagePath);
+      final userData = response['data'] as Map<String, dynamic>;
+
+      // Update current user with new avatar URL
+      _currentUser = User.fromJson(userData);
+      return _currentUser!;
+    } catch (e) {
+      print('[AuthService.uploadAvatarImage] Error: $e');
+      rethrow;
+    }
+  }
+
+  /// [2026-03-26 Feature] Update the authenticated user's profile identity.
+  ///
+  /// Profile setup now flows through AuthService so alpha builds can persist the
+  /// display name and avatar locally while backend builds continue to use the API.
+  Future<User> updateProfile({
+    String? username,
+    String? displayName,
+    String? avatar,
+    String? avatarUrl,
+  }) async {
+    final currentUser = _currentUser;
+    if (currentUser == null) {
+      throw Exception('User not authenticated');
+    }
+
+    if (username == null && displayName == null && avatar == null && avatarUrl == null) {
+      throw Exception('At least one field must be provided for update');
+    }
+
     /// [2026-03-26 Bugfix] Use a local promoted reference for local auth access.
     final localAuthService = _localAuthService;
 
     if (_isAlphaMode && localAuthService != null) {
+      final finalUsername = username ?? displayName ?? currentUser.username;
+      final finalAvatar = avatar ?? currentUser.avatar ?? '';
       final updatedUser = await localAuthService.updateProfile(
         userId: currentUser.id,
-        displayName: displayName,
-        avatar: avatar,
+        displayName: finalUsername,
+        avatar: finalAvatar,
       );
       _currentUser = updatedUser;
       return updatedUser;
@@ -329,13 +416,17 @@ class AuthService {
 
     await _apiService.updateProfile(
       userId: currentUser.id,
+      username: username,
       displayName: displayName,
       avatar: avatar,
+      avatarUrl: avatarUrl,
     );
 
+    // Update current user with the new values
     _currentUser = currentUser.copyWith(
-      displayName: displayName.trim(),
-      avatar: avatar,
+      username: username?.trim() ?? currentUser.username,
+      displayName: (username ?? displayName)?.trim() ?? currentUser.displayName,
+      avatar: avatar ?? currentUser.avatar,
     );
 
     return _currentUser!;

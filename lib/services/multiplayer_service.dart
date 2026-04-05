@@ -12,18 +12,40 @@ class MultiplayerService {
   IO.Socket? _socket;
   GameLobby? _currentLobby;
   final Map<String, List<Function>> _listeners = {};
-  String? _serverUrl;
 
   /// [2025-11-16 Integration] Initialize multiplayer service with gateway URL
   /// Uses BuildConfig to get the correct server URL based on build flavor
   MultiplayerService({String? serverUrl}) {
-    _serverUrl = serverUrl ?? BuildConfig.wsBaseUrl;
+    final resolvedUrl = serverUrl ?? BuildConfig.wsBaseUrl;
+    print('[MultiplayerService] Configured default server URL: $resolvedUrl');
+  }
+
+  /// Check if socket is connected
+  bool get isConnected {
+    if (_socket == null) {
+      print('[isConnected] Socket is null');
+      return false;
+    }
+    final connected = _socket!.connected;
+    print('[isConnected] Socket.connected = $connected');
+    return connected;
   }
 
   /// Connect to the multiplayer server
-  Future<void> connect(String serverUrl, String playerId) async {
+  Future<void> connect(String serverUrl, String playerId, {String? token}) async {
+    print('[MultiplayerService] Connecting to $serverUrl with playerId: $playerId');
+    print('[MultiplayerService] Token provided: ${token != null}');
+
+    final completer = Completer<void>();
+    print('[MultiplayerService] Creating socket.io client...');
+    print('[MultiplayerService] URL: $serverUrl');
+    print('[MultiplayerService] Player ID: $playerId');
+
     _socket = IO.io(serverUrl, <String, dynamic>{
-      'auth': {'playerId': playerId},
+      'auth': {
+        'token': token,
+        'playerId': playerId,
+      },
       'transports': ['websocket'],
       'autoConnect': true,
       'reconnection': true,
@@ -31,19 +53,50 @@ class MultiplayerService {
       'reconnectionDelay': 1000,
     });
 
+    print('[MultiplayerService] Socket.io client created');
+    print('[MultiplayerService] Socket initialized: ${_socket != null}');
+
     _socket!.onConnect((_) {
-      print('Connected to multiplayer server');
+      print('[MultiplayerService] ✓✓✓ Connected to multiplayer server');
+      print('[MultiplayerService] Socket ID: ${_socket!.id}');
+      print('[MultiplayerService] Socket connected: ${_socket!.connected}');
       _setupEventListeners();
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
     });
 
-    _socket!.onConnectError((error) {
-      print('Connection error: $error');
+    _socket!.onConnectError((data) {
+      print('[MultiplayerService] ✗✗✗ Connect ERROR event fired: $data');
+      if (!completer.isCompleted) {
+        completer.completeError(Exception('Failed to connect: $data'));
+      }
+    });
+
+    // Catch any socket-level errors
+    _socket!.on('error', (data) {
+      print('[MultiplayerService] ✗✗✗ SOCKET ERROR event: $data');
+    });
+
+    _socket!.onDisconnect((_) {
+      print('[MultiplayerService] Disconnected from server');
     });
 
     _socket!.connect();
+    print('[MultiplayerService] Called socket.connect()');
 
-    // Wait for connection
-    await Future.delayed(Duration(seconds: 1));
+    // Wait for connection with timeout
+    print('[MultiplayerService] Waiting for connection...');
+    try {
+      await completer.future.timeout(Duration(seconds: 10), onTimeout: () {
+        print('[MultiplayerService] ✗ Connection timeout after 10 seconds');
+        print('[MultiplayerService] Socket connected status: ${_socket?.connected}');
+        throw Exception('Connection timeout');
+      });
+    } catch (e) {
+      print('[MultiplayerService] ✗ Connection failed: $e');
+      throw Exception('Failed to connect to multiplayer server: $e');
+    }
   }
 
   /// Disconnect from the multiplayer server
@@ -57,14 +110,24 @@ class MultiplayerService {
   /// Create a new game lobby with enhanced options
   Future<GameLobby> createLobby({
     required String name,
-    required int maxPlayers,
+    int maxPlayers = 10,
     bool isPrivate = true,
     int numberOfRounds = 3,
     int votingPointsPerPlayer = 10,
   }) async {
+    print('[createLobby] Starting lobby creation for: $name');
+
     if (_socket == null) {
+      print('[createLobby] ✗ Socket is null - not connected to server');
       throw Exception('Not connected to server');
     }
+
+    if (!_socket!.connected) {
+      print('[createLobby] ✗ Socket not connected. Status: ${_socket!.connected}');
+      throw Exception('Socket is not connected to server');
+    }
+
+    print('[createLobby] ✓ Socket connected, emitting create-lobby event');
 
     if (maxPlayers < 2 || maxPlayers > 10) {
       throw Exception('Max players must be between 2 and 10');
@@ -79,20 +142,40 @@ class MultiplayerService {
     }
 
     final completer = Completer<GameLobby>();
+    Future.delayed(Duration(seconds: 10), () {
+      if (!completer.isCompleted) {
+        print('[createLobby] ✗ Timeout waiting for server response');
+        completer.completeError(Exception('Request timeout - server did not respond'));
+      }
+    });
+
+    print('[createLobby] Emitting create-lobby with: name=$name, maxPlayers=$maxPlayers, totalRounds=$numberOfRounds');
 
     _socket!.emitWithAck('create-lobby', {
       'name': name,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
-      'numberOfRounds': numberOfRounds,
+      'totalRounds': numberOfRounds,
       'votingPointsPerPlayer': votingPointsPerPlayer,
     }, ack: (data) {
-      if (data['success']) {
-        final lobby = GameLobby.fromJson(data['lobby']);
-        _currentLobby = lobby;
-        completer.complete(lobby);
-      } else {
-        completer.completeError(Exception(data['error']));
+      print('[createLobby] ✓ Received ack response: $data');
+
+      if (!completer.isCompleted) {
+        if (data != null && data is Map && data['success'] == true) {
+          try {
+            final lobby = GameLobby.fromJson(data['lobby']);
+            _currentLobby = lobby;
+            print('[createLobby] ✓ Lobby created: ${lobby.id}, code: ${lobby.lobbyCode}');
+            completer.complete(lobby);
+          } catch (e) {
+            print('[createLobby] ✗ Error parsing lobby response: $e');
+            completer.completeError(Exception('Failed to parse lobby: $e'));
+          }
+        } else {
+          final error = data != null && data is Map ? data['error'] ?? 'Unknown error' : 'Invalid response format';
+          print('[createLobby] ✗ Error from server: $error');
+          completer.completeError(Exception(error));
+        }
       }
     });
 
@@ -131,7 +214,7 @@ class MultiplayerService {
     final completer = Completer<GameLobby>();
 
     _socket!.emitWithAck('join-lobby-by-code', {
-      'lobbyCode': lobbyCode.toUpperCase(),
+      'code': lobbyCode.toUpperCase(),
     }, ack: (data) {
       if (data['success']) {
         final lobby = GameLobby.fromJson(data['lobby']);
@@ -168,19 +251,19 @@ class MultiplayerService {
   }
 
   /// Start a game in the current lobby
-  Future<Game> startGame(String gameId) async {
-    if (_socket == null || _currentLobby == null) {
-      throw Exception('Not in a lobby');
+  /// Start game - loads immutable payload and sends to all players
+  Future<void> startGame(String lobbyId) async {
+    if (_socket == null) {
+      throw Exception('Not connected to server');
     }
 
-    final completer = Completer<Game>();
+    final completer = Completer<void>();
 
     _socket!.emitWithAck('start-game', {
-      'lobbyId': _currentLobby!.id,
-      'gameId': gameId,
+      'lobbyId': lobbyId,
     }, ack: (data) {
       if (data['success']) {
-        completer.complete(Game.fromJson(data['game']));
+        completer.complete();
       } else {
         completer.completeError(Exception(data['error']));
       }
@@ -200,6 +283,43 @@ class MultiplayerService {
     _socket!.emitWithAck('make-turn', {
       'lobbyId': _currentLobby!.id,
       'turnData': turnData,
+    }, ack: (data) {
+      if (data['success']) {
+        completer.complete();
+      } else {
+        completer.completeError(Exception(data['error']));
+      }
+    });
+
+    return completer.future;
+  }
+
+  /// Submit a completed game result for server-side validation
+  Future<void> submitGameResult({
+    required String lobbyId,
+    required String gameId,
+    required int roundNumber,
+    required int score,
+    required int timeTaken,
+    int hintsUsed = 0,
+    bool perfect = false,
+    Map<String, dynamic>? gameData,
+  }) async {
+    if (_socket == null) {
+      throw Exception('Not connected to server');
+    }
+
+    final completer = Completer<void>();
+
+    _socket!.emitWithAck('submit-game-result', {
+      'lobbyId': lobbyId,
+      'gameId': gameId,
+      'roundNumber': roundNumber,
+      'score': score,
+      'timeTaken': timeTaken,
+      'hintsUsed': hintsUsed,
+      'perfect': perfect,
+      if (gameData != null) 'gameData': gameData,
     }, ack: (data) {
       if (data['success']) {
         completer.complete();
@@ -789,6 +909,91 @@ class MultiplayerService {
   /// Get current lobby
   GameLobby? get currentLobby => _currentLobby;
 
-  /// Check if connected
-  bool get isConnected => _socket?.connected ?? false;
+  // ============================================================================
+  // Phase 2: War Configuration & Immutable Payloads
+  // ============================================================================
+
+  /// Update war configuration (difficulty, hints, ranked, game pool)
+  Future<void> updateWarConfig({
+    required String lobbyId,
+    required String difficulty,
+    required String hintPolicy,
+    required bool ranked,
+    String? gamePack,
+    List<String>? manualGameIds,
+  }) async {
+    if (_socket == null) {
+      throw Exception('Not connected to server');
+    }
+
+    final completer = Completer<void>();
+
+    _socket!.emitWithAck('update-war-config', {
+      'lobbyId': lobbyId,
+      'difficulty': difficulty,
+      'hintPolicy': hintPolicy,
+      'ranked': ranked,
+      'gamePack': gamePack,
+      'manualGameIds': manualGameIds ?? [],
+    }, ack: (data) {
+      if (data['success']) {
+        completer.complete();
+      } else {
+        completer.completeError(Exception(data['error']));
+      }
+    });
+
+    return completer.future;
+  }
+
+  /// Mark player as ready to start the game
+  Future<void> setPlayerReady(String lobbyId) async {
+    if (_socket == null) {
+      throw Exception('Not connected to server');
+    }
+
+    final completer = Completer<void>();
+
+    _socket!.emitWithAck('set-player-ready', {
+      'lobbyId': lobbyId,
+    }, ack: (data) {
+      if (data['success']) {
+        completer.complete();
+      } else {
+        completer.completeError(Exception(data['error']));
+      }
+    });
+
+    return completer.future;
+  }
+
+  /// Listen for war configuration updates
+  void onWarConfigUpdated(Function(Map<String, dynamic>) callback) {
+    on('war-config-updated', callback);
+  }
+
+  /// Listen for player ready state changes
+  void onPlayerReady(Function(Map<String, dynamic>) callback) {
+    on('player-ready', callback);
+  }
+
+  /// Listen for payload lock (immutable payload generated)
+  void onPayloadLocked(Function(Map<String, dynamic>) callback) {
+    on('payload-locked', callback);
+  }
+
+  /// Listen for game start event
+  void onGameStarted(Function(Map<String, dynamic>) callback) {
+    on('game-started', callback);
+  }
+
+  /// Listen for round completion
+  void onRoundComplete(Function(Map<String, dynamic>) callback) {
+    on('round-complete', callback);
+  }
+
+  /// Listen for game ended
+  void onGameEnded(Function(Map<String, dynamic>) callback) {
+    on('game-ended', callback);
+  }
 }

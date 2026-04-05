@@ -6,6 +6,7 @@ This section contains one design and gameplay reference document per Mind Wars g
 
 - [Mind Wars Ranking Specification](MIND_WARS_RANKING_SPEC.md): Shared definition for local Mind War placement, ranked-run eligibility, and Global / Regional / National leaderboard routing.
 - [Mind War Battle Payload Specification](MIND_WAR_BATTLE_PAYLOAD_SPEC.md): Shared definition for how every player in the same Mind War receives the exact same deterministic content package and ruleset.
+- [Sealed Payload Implementation Guide](SEALED_PAYLOAD_IMPLEMENTATION_GUIDE.md): Practical implementation contract for teams building server-verifiable deterministic game payloads like Rotation Master and Path Finder.
 - Every canonical game doc now includes an `Exact Same Game Delivery Method` subsection describing how the platform should distribute one identical battle payload to all players in the same Mind War.
 
 ## Ranked Rollout Snapshot

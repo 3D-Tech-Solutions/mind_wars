@@ -6,15 +6,28 @@
 enum PlayerStatus { active, idle, disconnected }
 
 /// User model - represents authenticated user
+///
+/// username: Unique identifier (3-20 chars, set during profile setup)
+/// displayName: Non-unique display name (optional, editable, shown in competitive contexts)
+///
+/// Display logic:
+/// - If displayName differs from username: show "DisplayName (username)"
+/// - Otherwise: show just username
 class User {
   final String id;
-  final String username;
+  final String username;        // Unique identifier
   final String email;
-  final String? displayName;
+  final String? displayName;     // Non-unique, editable display name
   final String? avatar;
+  final String? avatarUrl;       // URL for uploaded custom avatar
+  final String? avatarChecksum;  // MD5 checksum for cache validation
   final DateTime? createdAt;
   final int? level;
   final int? totalScore;
+  final int? currentStreak;
+  final int? longestStreak;
+  final int? gamesPlayed;
+  final int? gamesWon;
 
   User({
     required this.id,
@@ -22,20 +35,42 @@ class User {
     required this.email,
     this.displayName,
     this.avatar,
+    this.avatarUrl,
+    this.avatarChecksum,
     this.createdAt,
     this.level,
     this.totalScore,
+    this.currentStreak,
+    this.longestStreak,
+    this.gamesPlayed,
+    this.gamesWon,
   });
-  
+
+  /// Get display name for competitive contexts (Mind Wars, leaderboards, etc.)
+  /// Shows "DisplayName (username)" if displayName differs from username
+  String getCompetitiveDisplayName() {
+    final display = displayName?.trim() ?? '';
+    if (display.isNotEmpty && display != username) {
+      return '$display ($username)';
+    }
+    return username;
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'username': username,
         'email': email,
         'displayName': displayName,
         'avatar': avatar,
+        'avatarUrl': avatarUrl,
+        'avatarChecksum': avatarChecksum,
         'createdAt': createdAt?.toIso8601String(),
         'level': level,
         'totalScore': totalScore,
+        'currentStreak': currentStreak,
+        'longestStreak': longestStreak,
+        'gamesPlayed': gamesPlayed,
+        'gamesWon': gamesWon,
       };
   
   factory User.fromJson(Map<String, dynamic> json) {
@@ -67,6 +102,42 @@ class User {
       print('[User.fromJson] Error parsing totalScore: $e');
     }
 
+    int? currentStreak;
+    try {
+      if (json['currentStreak'] != null) {
+        currentStreak = int.parse(json['currentStreak'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing currentStreak: $e');
+    }
+
+    int? longestStreak;
+    try {
+      if (json['longestStreak'] != null) {
+        longestStreak = int.parse(json['longestStreak'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing longestStreak: $e');
+    }
+
+    int? gamesPlayed;
+    try {
+      if (json['gamesPlayed'] != null) {
+        gamesPlayed = int.parse(json['gamesPlayed'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing gamesPlayed: $e');
+    }
+
+    int? gamesWon;
+    try {
+      if (json['gamesWon'] != null) {
+        gamesWon = int.parse(json['gamesWon'].toString());
+      }
+    } catch (e) {
+      print('[User.fromJson] Error parsing gamesWon: $e');
+    }
+
     DateTime? createdAt;
     try {
       if (json['createdAt'] != null) {
@@ -83,10 +154,16 @@ class User {
       username: username,
       email: email,
       displayName: json['displayName']?.toString(),
-      avatar: json['avatar']?.toString() ?? json['avatarUrl']?.toString(),
+      avatar: json['avatar']?.toString(),
+      avatarUrl: json['avatarUrl']?.toString(),
+      avatarChecksum: json['avatarChecksum']?.toString(),
       createdAt: createdAt,
       level: level,
       totalScore: totalScore,
+      currentStreak: currentStreak,
+      longestStreak: longestStreak,
+      gamesPlayed: gamesPlayed,
+      gamesWon: gamesWon,
     );
   }
   
@@ -96,9 +173,15 @@ class User {
     String? email,
     String? displayName,
     String? avatar,
+    String? avatarUrl,
+    String? avatarChecksum,
     DateTime? createdAt,
     int? level,
     int? totalScore,
+    int? currentStreak,
+    int? longestStreak,
+    int? gamesPlayed,
+    int? gamesWon,
   }) {
     return User(
       id: id ?? this.id,
@@ -106,9 +189,15 @@ class User {
       email: email ?? this.email,
       displayName: displayName ?? this.displayName,
       avatar: avatar ?? this.avatar,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      avatarChecksum: avatarChecksum ?? this.avatarChecksum,
       createdAt: createdAt ?? this.createdAt,
       level: level ?? this.level,
       totalScore: totalScore ?? this.totalScore,
+      currentStreak: currentStreak ?? this.currentStreak,
+      longestStreak: longestStreak ?? this.longestStreak,
+      gamesPlayed: gamesPlayed ?? this.gamesPlayed,
+      gamesWon: gamesWon ?? this.gamesWon,
     );
   }
 }
@@ -120,6 +209,7 @@ enum CognitiveCategory { memory, logic, attention, spatial, language }
 class Player {
   final String id;
   final String username;
+  final String? displayName;  // Non-unique, editable display name
   final String? avatar;
   final PlayerStatus status;
   final int score;
@@ -130,6 +220,7 @@ class Player {
   Player({
     required this.id,
     required this.username,
+    this.displayName,
     this.avatar,
     required this.status,
     required this.score,
@@ -141,6 +232,7 @@ class Player {
   Map<String, dynamic> toJson() => {
         'id': id,
         'username': username,
+        'displayName': displayName,
         'avatar': avatar,
         'status': status.toString(),
         'score': score,
@@ -152,6 +244,7 @@ class Player {
   factory Player.fromJson(Map<String, dynamic> json) => Player(
         id: json['id'],
         username: json['username'],
+        displayName: json['displayName'],
         avatar: json['avatar'],
         status: PlayerStatus.values.firstWhere(
           (e) => e.toString() == json['status'],
@@ -217,6 +310,12 @@ class GameLobby {
   final SkipRule skipRule; // Vote-to-skip rule (majority, unanimous, time_based)
   final int skipTimeLimitHours; // Time limit for time-based skip rule
 
+  // Phase 2: War Configuration fields
+  final String? difficulty;  // 'easy' | 'medium' | 'hard'
+  final String? hintPolicy;  // 'disabled' | 'enabled' | 'assisted'
+  final bool ranked;         // Ranked vs casual
+  final bool payloadLocked;  // Is the immutable payload locked?
+
   GameLobby({
     required this.id,
     required this.name,
@@ -232,6 +331,10 @@ class GameLobby {
     this.votingPointsPerPlayer = 10,
     this.skipRule = SkipRule.majority,
     this.skipTimeLimitHours = 24,
+    this.difficulty,
+    this.hintPolicy,
+    this.ranked = false,
+    this.payloadLocked = false,
   });
 
   Map<String, dynamic> toJson() => {
@@ -249,29 +352,37 @@ class GameLobby {
         'votingPointsPerPlayer': votingPointsPerPlayer,
         'skipRule': skipRule.value,
         'skipTimeLimitHours': skipTimeLimitHours,
+        'difficulty': difficulty,
+        'hintPolicy': hintPolicy,
+        'ranked': ranked,
+        'payloadLocked': payloadLocked,
       };
 
   factory GameLobby.fromJson(Map<String, dynamic> json) => GameLobby(
         id: json['id'],
         name: json['name'],
         hostId: json['hostId'],
-        players: (json['players'] as List)
-            .map((p) => Player.fromJson(p))
-            .toList(),
+        players: (json['players'] as List?)
+            ?.map((p) => Player.fromJson(p))
+            .toList() ?? [],
         maxPlayers: json['maxPlayers'],
         currentGame: json['currentGame'] != null
             ? Game.fromJson(json['currentGame'])
             : null,
         status: json['status'],
-        createdAt: DateTime.parse(json['createdAt']),
-        lobbyCode: json['lobbyCode'],
+        createdAt: DateTime.parse(json['createdAt'] ?? DateTime.now().toIso8601String()),
+        lobbyCode: json['code'] ?? json['lobbyCode'],
         isPrivate: json['isPrivate'] ?? true,
-        numberOfRounds: json['numberOfRounds'] ?? 3,
+        numberOfRounds: json['totalRounds'] ?? json['numberOfRounds'] ?? 3,
         votingPointsPerPlayer: json['votingPointsPerPlayer'] ?? 10,
         skipRule: json['skipRule'] != null
             ? SkipRuleExtension.fromString(json['skipRule'])
             : SkipRule.majority,
         skipTimeLimitHours: json['skipTimeLimitHours'] ?? 24,
+        difficulty: json['difficulty'],
+        hintPolicy: json['hintPolicy'],
+        ranked: json['ranked'] ?? false,
+        payloadLocked: json['payloadLocked'] ?? false,
       );
   
   /// Create a copy of this lobby with updated values
@@ -290,6 +401,10 @@ class GameLobby {
     int? votingPointsPerPlayer,
     SkipRule? skipRule,
     int? skipTimeLimitHours,
+    String? difficulty,
+    String? hintPolicy,
+    bool? ranked,
+    bool? payloadLocked,
   }) {
     return GameLobby(
       id: id ?? this.id,
@@ -306,6 +421,10 @@ class GameLobby {
       votingPointsPerPlayer: votingPointsPerPlayer ?? this.votingPointsPerPlayer,
       skipRule: skipRule ?? this.skipRule,
       skipTimeLimitHours: skipTimeLimitHours ?? this.skipTimeLimitHours,
+      difficulty: difficulty ?? this.difficulty,
+      hintPolicy: hintPolicy ?? this.hintPolicy,
+      ranked: ranked ?? this.ranked,
+      payloadLocked: payloadLocked ?? this.payloadLocked,
     );
   }
   
@@ -332,6 +451,16 @@ class Game {
   final Map<String, dynamic> state;
   final bool completed;
 
+  // Phase 2 fields
+  final String? mindWarId;           // Immutable payload ID
+  final String? lobbyId;             // Parent lobby
+  final int? roundNumber;            // Current round in sequence
+  final int? gameIndex;              // Deterministic seed for game state
+  final String? seed;                // Seed for pseudo-random generation
+  final String? difficulty;          // Game difficulty level
+  final String? hintPolicy;          // Hint availability
+  final bool? ranked;                // Is this a ranked match?
+
   Game({
     required this.id,
     required this.name,
@@ -343,6 +472,14 @@ class Game {
     required this.currentPlayerId,
     required this.state,
     required this.completed,
+    this.mindWarId,
+    this.lobbyId,
+    this.roundNumber,
+    this.gameIndex,
+    this.seed,
+    this.difficulty,
+    this.hintPolicy,
+    this.ranked,
   });
 
   Map<String, dynamic> toJson() => {
@@ -356,6 +493,14 @@ class Game {
         'currentPlayerId': currentPlayerId,
         'state': state,
         'completed': completed,
+        'mindWarId': mindWarId,
+        'lobbyId': lobbyId,
+        'roundNumber': roundNumber,
+        'gameIndex': gameIndex,
+        'seed': seed,
+        'difficulty': difficulty,
+        'hintPolicy': hintPolicy,
+        'ranked': ranked,
       };
 
   factory Game.fromJson(Map<String, dynamic> json) => Game(
@@ -363,14 +508,23 @@ class Game {
         name: json['name'],
         category: CognitiveCategory.values.firstWhere(
           (e) => e.toString() == json['category'],
+          orElse: () => CognitiveCategory.logic,
         ),
         description: json['description'],
-        minPlayers: json['minPlayers'],
-        maxPlayers: json['maxPlayers'],
-        currentTurn: json['currentTurn'],
-        currentPlayerId: json['currentPlayerId'],
-        state: json['state'],
-        completed: json['completed'],
+        minPlayers: json['minPlayers'] ?? 2,
+        maxPlayers: json['maxPlayers'] ?? 2,
+        currentTurn: json['currentTurn'] ?? 1,
+        currentPlayerId: json['currentPlayerId'] ?? '',
+        state: json['state'] ?? {},
+        completed: json['completed'] ?? false,
+        mindWarId: json['mindWarId'],
+        lobbyId: json['lobbyId'],
+        roundNumber: json['roundNumber'],
+        gameIndex: json['gameIndex'],
+        seed: json['seed'],
+        difficulty: json['difficulty'],
+        hintPolicy: json['hintPolicy'],
+        ranked: json['ranked'],
       );
 }
 
@@ -1092,4 +1246,126 @@ class AuthResult {
     this.user,
     this.error,
   });
+}
+
+// ============================================================================
+// Phase 2: War Configuration, Voting, & Immutable Payloads
+// ============================================================================
+
+/// War configuration model
+class WarConfig {
+  final String difficulty;        // 'easy' | 'medium' | 'hard'
+  final String hintPolicy;        // 'disabled' | 'enabled' | 'assisted'
+  final bool ranked;              // Ranked vs casual
+  final String? gamePack;         // Preset pack name or null for manual
+  final List<String> manualGameIds; // Selected games if manual selection
+
+  WarConfig({
+    required this.difficulty,
+    required this.hintPolicy,
+    required this.ranked,
+    this.gamePack,
+    this.manualGameIds = const [],
+  });
+
+  Map<String, dynamic> toJson() => {
+    'difficulty': difficulty,
+    'hintPolicy': hintPolicy,
+    'ranked': ranked,
+    'gamePack': gamePack,
+    'manualGameIds': manualGameIds,
+  };
+
+  factory WarConfig.fromJson(Map<String, dynamic> json) => WarConfig(
+    difficulty: json['difficulty'] ?? 'medium',
+    hintPolicy: json['hintPolicy'] ?? 'enabled',
+    ranked: json['ranked'] ?? false,
+    gamePack: json['gamePack'],
+    manualGameIds: List<String>.from(json['manualGameIds'] ?? []),
+  );
+}
+
+/// Individual game slot in the immutable sequence
+class GameSlot {
+  final int roundNumber;
+  final String gameId;
+  final String difficulty;
+  final String hintPolicy;
+  final int gameIndex;            // Deterministic index for this round's game
+  final String seed;              // Seed for pseudo-random generation
+
+  GameSlot({
+    required this.roundNumber,
+    required this.gameId,
+    required this.difficulty,
+    required this.hintPolicy,
+    required this.gameIndex,
+    required this.seed,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'roundNumber': roundNumber,
+    'gameId': gameId,
+    'difficulty': difficulty,
+    'hintPolicy': hintPolicy,
+    'gameIndex': gameIndex,
+    'seed': seed,
+  };
+
+  factory GameSlot.fromJson(Map<String, dynamic> json) => GameSlot(
+    roundNumber: json['roundNumber'] ?? 1,
+    gameId: json['gameId'] ?? '',
+    difficulty: json['difficulty'] ?? 'medium',
+    hintPolicy: json['hintPolicy'] ?? 'enabled',
+    gameIndex: json['gameIndex'] ?? 0,
+    seed: json['seed'] ?? '',
+  );
+}
+
+/// Immutable Mind War Payload - locked before game starts
+/// All players receive and cache this to ensure identical gameplay
+class MindWarPayload {
+  final String mindWarId;
+  final String lobbyId;
+  final List<GameSlot> gameSequence;
+  final String difficulty;
+  final String hintPolicy;
+  final bool ranked;
+  final String scoringModelVersion;
+  final String createdAt;
+
+  MindWarPayload({
+    required this.mindWarId,
+    required this.lobbyId,
+    required this.gameSequence,
+    required this.difficulty,
+    required this.hintPolicy,
+    required this.ranked,
+    required this.scoringModelVersion,
+    required this.createdAt,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'mindWarId': mindWarId,
+    'lobbyId': lobbyId,
+    'gameSequence': gameSequence.map((g) => g.toJson()).toList(),
+    'difficulty': difficulty,
+    'hintPolicy': hintPolicy,
+    'ranked': ranked,
+    'scoringModelVersion': scoringModelVersion,
+    'createdAt': createdAt,
+  };
+
+  factory MindWarPayload.fromJson(Map<String, dynamic> json) => MindWarPayload(
+    mindWarId: json['mindWarId'] ?? '',
+    lobbyId: json['lobbyId'] ?? '',
+    gameSequence: (json['gameSequence'] as List?)
+        ?.map((g) => GameSlot.fromJson(g as Map<String, dynamic>))
+        .toList() ?? [],
+    difficulty: json['difficulty'] ?? 'medium',
+    hintPolicy: json['hintPolicy'] ?? 'enabled',
+    ranked: json['ranked'] ?? false,
+    scoringModelVersion: json['scoringModelVersion'] ?? '1.0',
+    createdAt: json['createdAt'] ?? DateTime.now().toIso8601String(),
+  );
 }

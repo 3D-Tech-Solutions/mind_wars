@@ -62,7 +62,7 @@ class _VoteToSkipDialogState extends State<VoteToSkipDialog> {
             ),
             const SizedBox(height: 8),
             Text(
-              'Forfeit their ${session.votingPointsPerPlayer ?? 10} points for this Battle?',
+              'Forfeit their 10 points for this Battle?',
               style: TextStyle(
                 color: Colors.grey[700],
                 fontWeight: FontWeight.w500,

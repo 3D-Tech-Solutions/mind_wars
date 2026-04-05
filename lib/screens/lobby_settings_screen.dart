@@ -41,6 +41,8 @@ class _LobbySettingsScreenState extends State<LobbySettingsScreen> {
     _maxPlayers = widget.lobby.maxPlayers;
     _totalRounds = widget.lobby.numberOfRounds;
     _votingPoints = widget.lobby.votingPointsPerPlayer;
+    _skipRule = widget.lobby.skipRule;
+    _skipTimeLimitHours = widget.lobby.skipTimeLimitHours;
   }
 
   @override
