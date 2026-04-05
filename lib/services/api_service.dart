@@ -7,10 +7,117 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../models/models.dart';
+import 'app_logger.dart';
+import 'network_metrics.dart';
+
+/// A custom HTTP client that intercepts all requests to log full 
+/// request/response payloads and record latency metrics.
+class LoggingClient extends http.BaseClient {
+  final http.Client _inner = http.Client();
+
+  static const List<String> _sensitiveKeys = [
+    'password',
+    'token',
+    'accesstoken',
+    'refreshtoken',
+    'oldpassword',
+    'newpassword'
+  ];
+
+  String _sanitizePayload(String payload) {
+    try {
+      final decoded = jsonDecode(payload);
+      final redacted = _redactNode(decoded);
+      return jsonEncode(redacted);
+    } catch (e) {
+      // If it's not valid JSON, we return it as-is. 
+      return payload;
+    }
+  }
+
+  dynamic _redactNode(dynamic node) {
+    if (node is Map) {
+      final redactedMap = <String, dynamic>{};
+      node.forEach((key, value) {
+        if (_sensitiveKeys.contains(key.toString().toLowerCase())) {
+          redactedMap[key] = '[REDACTED]';
+        } else {
+          redactedMap[key] = _redactNode(value);
+        }
+      });
+      return redactedMap;
+    } else if (node is List) {
+      return node.map((item) => _redactNode(item)).toList();
+    }
+    return node;
+  }
+
+  Map<String, String> _sanitizeHeaders(Map<String, String> headers) {
+    final sanitized = Map<String, String>.from(headers);
+    if (sanitized.containsKey('Authorization')) {
+      sanitized['Authorization'] = '[REDACTED]';
+    }
+    return sanitized;
+  }
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) async {
+    final stopwatch = Stopwatch()..start();
+    
+    // Log outgoing request
+    final requestLog = StringBuffer();
+    requestLog.writeln('--> ${request.method} ${request.url}');
+    requestLog.writeln('Headers: ${_sanitizeHeaders(request.headers)}');
+    if (request is http.Request && request.body.isNotEmpty) {
+      requestLog.writeln('Body: ${_sanitizePayload(request.body)}');
+    } else if (request is http.MultipartRequest) {
+      requestLog.writeln('Body: [Multipart Form Data]');
+    }
+    AppLogger.debug(requestLog.toString(), source: 'API_REQ');
+
+    try {
+      final response = await _inner.send(request);
+      stopwatch.stop();
+
+      // Record metric
+      NetworkMetrics().recordRequest(
+        request.url.path,
+        request.method,
+        response.statusCode,
+        stopwatch.elapsed,
+      );
+
+      // Read response body to log it, then recreate the stream
+      final responseBodyBytes = await response.stream.toBytes();
+      final responseBody = utf8.decode(responseBodyBytes, allowMalformed: true);
+      
+      final responseLog = StringBuffer();
+      responseLog.writeln('<-- ${response.statusCode} ${request.url} (${stopwatch.elapsedMilliseconds}ms)');
+      responseLog.writeln('Body: ${_sanitizePayload(responseBody)}');
+      AppLogger.debug(responseLog.toString(), source: 'API_RES');
+
+      return http.StreamedResponse(
+        Stream.value(responseBodyBytes),
+        response.statusCode,
+        contentLength: responseBodyBytes.length,
+        request: response.request,
+        headers: response.headers,
+        isRedirect: response.isRedirect,
+        persistentConnection: response.persistentConnection,
+        reasonPhrase: response.reasonPhrase,
+      );
+    } catch (e) {
+      stopwatch.stop();
+      AppLogger.error('<-- ERROR ${request.method} ${request.url} (${stopwatch.elapsedMilliseconds}ms)', source: 'API_ERR', exception: e);
+      rethrow;
+    }
+  }
+}
 
 class ApiService {
   final String baseUrl;
   String? _authToken;
+  final LoggingClient _client = LoggingClient();
 
   ApiService({required this.baseUrl});
 
@@ -43,7 +150,7 @@ class ApiService {
       // Extract base URL without /api suffix for health check
       final healthUrl = baseUrl.replaceAll('/api', '');
       print('[API] Performing health check on $healthUrl/health');
-      final response = await http.get(
+      final response = await _client.get(
         Uri.parse('$healthUrl/health'),
         headers: _headers,
       ).timeout(const Duration(seconds: 5));
@@ -67,7 +174,7 @@ class ApiService {
     try {
       final url = '$baseUrl/auth/register';
       print('[API] Attempting registration for: $email at $url');
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: _headers,
         body: jsonEncode({
@@ -108,7 +215,7 @@ class ApiService {
       final body = <String, dynamic>{'username': username};
       if (userId != null) body['userId'] = userId;
 
-      final response = await http.post(
+      final response = await _client.post(
         Uri.parse(url),
         headers: _headers,
         body: jsonEncode(body),
@@ -135,7 +242,7 @@ class ApiService {
   Future<Map<String, dynamic>> login(String email, String password) async {
     // [2025-11-17 Bugfix] Updated to normalize backend response format
     print('[API.login] Starting login for: $email');
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/auth/login'),
       headers: _headers,
       body: jsonEncode({
@@ -178,7 +285,7 @@ class ApiService {
 
   /// Logout user
   Future<void> logout() async {
-    await http.post(
+    await _client.post(
       Uri.parse('$baseUrl/auth/logout'),
       headers: _headers,
     );
@@ -187,7 +294,7 @@ class ApiService {
 
   /// Request password reset
   Future<Map<String, dynamic>> requestPasswordReset(String email) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/auth/request-password-reset'),
       headers: _headers,
       body: jsonEncode({
@@ -202,7 +309,7 @@ class ApiService {
 
   /// Get available lobbies
   Future<List<GameLobby>> getLobbies() async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/lobbies'),
       headers: _headers,
     );
@@ -215,7 +322,7 @@ class ApiService {
 
   /// Create lobby
   Future<GameLobby> createLobby(String name, {int? maxPlayers}) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/lobbies'),
       headers: _headers,
       body: jsonEncode({
@@ -230,7 +337,7 @@ class ApiService {
 
   /// Get lobby details
   Future<GameLobby> getLobby(String lobbyId) async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/lobbies/$lobbyId'),
       headers: _headers,
     );
@@ -243,7 +350,7 @@ class ApiService {
 
   /// Get available games
   Future<List<Map<String, dynamic>>> getGames() async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/games'),
       headers: _headers,
     );
@@ -259,7 +366,7 @@ class ApiService {
     Map<String, dynamic> gameData,
   ) async {
     // Security-First: Server validates all game logic
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/games/$gameId/submit'),
       headers: _headers,
       body: jsonEncode({
@@ -277,7 +384,7 @@ class ApiService {
     Map<String, dynamic> moveData,
   ) async {
     // Security-First: Server is authoritative source
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/games/$gameId/validate-move'),
       headers: _headers,
       body: jsonEncode(moveData),
@@ -290,7 +397,7 @@ class ApiService {
 
   /// Get weekly leaderboard
   Future<List<LeaderboardEntry>> getWeeklyLeaderboard() async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/leaderboard/weekly'),
       headers: _headers,
     );
@@ -303,7 +410,7 @@ class ApiService {
 
   /// Get all-time leaderboard
   Future<List<LeaderboardEntry>> getAllTimeLeaderboard() async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/leaderboard/all-time'),
       headers: _headers,
     );
@@ -318,7 +425,7 @@ class ApiService {
 
   /// Get user profile
   Future<Map<String, dynamic>> getUserProfile(String userId) async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/users/$userId'),
       headers: _headers,
     );
@@ -331,7 +438,7 @@ class ApiService {
     String userId,
     Map<String, dynamic> updates,
   ) async {
-    final response = await http.patch(
+    final response = await _client.patch(
       Uri.parse('$baseUrl/users/$userId'),
       headers: _headers,
       body: jsonEncode(updates),
@@ -395,7 +502,7 @@ class ApiService {
 
   /// Get user progress
   Future<UserProgress> getUserProgress(String userId) async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/users/$userId/progress'),
       headers: _headers,
     );
@@ -408,7 +515,7 @@ class ApiService {
 
   /// Get user personal profile (firstName, lastName, DOB, gender, bio, location)
   Future<Map<String, dynamic>> getPersonalProfile(String userId) async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/users/$userId/profile'),
       headers: _headers,
     );
@@ -434,7 +541,7 @@ class ApiService {
     if (bio != null) updates['bio'] = bio;
     if (location != null) updates['location'] = location;
 
-    final response = await http.patch(
+    final response = await _client.patch(
       Uri.parse('$baseUrl/users/$userId/profile'),
       headers: _headers,
       body: jsonEncode(updates),
@@ -451,7 +558,7 @@ class ApiService {
     OfflineGameData gameData,
   ) async {
     // Server-side validation prevents cheating
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/sync/game'),
       headers: _headers,
       body: jsonEncode({
@@ -468,7 +575,7 @@ class ApiService {
     String userId,
     UserProgress progress,
   ) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/sync/progress'),
       headers: _headers,
       body: jsonEncode({
@@ -485,7 +592,7 @@ class ApiService {
     String userId,
     List<OfflineGameData> games,
   ) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl/sync/batch'),
       headers: _headers,
       body: jsonEncode({
@@ -505,7 +612,7 @@ class ApiService {
     Map<String, dynamic> properties,
   ) async {
     try {
-      await http.post(
+      await _client.post(
         Uri.parse('$baseUrl/analytics/track'),
         headers: _headers,
         body: jsonEncode({
@@ -522,7 +629,7 @@ class ApiService {
 
   /// Get A/B test variant
   Future<String> getABTestVariant(String testName) async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/ab-test/$testName'),
       headers: _headers,
     );
@@ -535,7 +642,7 @@ class ApiService {
 
   /// Register FCM token
   Future<void> registerPushToken(String token, String platform) async {
-    await http.post(
+    await _client.post(
       Uri.parse('$baseUrl/notifications/register'),
       headers: _headers,
       body: jsonEncode({
@@ -547,7 +654,7 @@ class ApiService {
 
   /// Get user notifications
   Future<List<Map<String, dynamic>>> getNotifications() async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl/notifications'),
       headers: _headers,
     );
@@ -560,7 +667,7 @@ class ApiService {
 
   /// Generic GET request
   Future<Map<String, dynamic>> get(String endpoint) async {
-    final response = await http.get(
+    final response = await _client.get(
       Uri.parse('$baseUrl$endpoint'),
       headers: _headers,
     );
@@ -572,7 +679,7 @@ class ApiService {
     String endpoint,
     Map<String, dynamic> body,
   ) async {
-    final response = await http.post(
+    final response = await _client.post(
       Uri.parse('$baseUrl$endpoint'),
       headers: _headers,
       body: jsonEncode(body),

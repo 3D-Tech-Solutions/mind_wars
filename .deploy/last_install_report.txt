@@ -1,9 +1,9 @@
 Built APK: /mnt/d/source/3D-Tech-Solutions/mind-wars/build/app/outputs/flutter-apk/app-local-debug.apk
-Built At: 2026-04-05T16:55:19-04:00
+Built At: 2026-04-05T18:27:26-04:00
 Flavor: local
 Build Type: debug
 Host: 172.16.0.4
-Version: 1.0.2+5
+Version: 1.0.2+6
 
 Install Results:
 SUCCESS adb-R5CXC1XNPYJ-h58IGl._adb-tls-connect._tcp

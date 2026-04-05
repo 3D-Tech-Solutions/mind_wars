@@ -17,6 +17,7 @@ import '../utils/build_config.dart';
 import '../main.dart';
 import '../utils/brand_animations.dart';
 import '../widgets/debug_panel.dart';
+import '../widgets/build_version_badge.dart';
 
 class RegistrationScreen extends StatefulWidget {
   const RegistrationScreen({super.key});
@@ -189,11 +190,13 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
-            key: _formKey,
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
+                key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
@@ -467,8 +470,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> {
                 ),
               ],
             ),
+            ),
           ),
-        ),
+          ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }

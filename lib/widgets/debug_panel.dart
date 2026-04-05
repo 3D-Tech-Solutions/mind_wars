@@ -7,10 +7,19 @@
  * Only shown in alpha builds when accessing multiplayer features.
  */
 
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:provider/provider.dart';
 import '../services/connectivity_service.dart';
 import '../services/app_logger.dart';
 import '../utils/build_config.dart';
+import '../utils/screen_version_registry.dart';
+import '../services/network_metrics.dart';
+import '../services/multiplayer_service.dart';
+import '../services/auth_service.dart';
+import '../services/offline_service.dart';
+import '../models/models.dart';
 
 class DebugPanel extends StatefulWidget {
   final VoidCallback? onRetry;
@@ -31,7 +40,7 @@ class _DebugPanelState extends State<DebugPanel>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _testConnectivity();
   }
 
@@ -69,6 +78,8 @@ class _DebugPanelState extends State<DebugPanel>
             tabs: const [
               Tab(text: '🔌 Status'),
               Tab(text: '📋 Logs'),
+              Tab(text: '🛠️ Tools'),
+              Tab(text: '🔄 Sync'),
             ],
             indicatorColor: Colors.blue[300],
             labelColor: Colors.white,
@@ -80,6 +91,8 @@ class _DebugPanelState extends State<DebugPanel>
               children: [
                 _buildStatusTab(),
                 _buildLogsTab(),
+                _buildToolsTab(),
+                _buildSyncTab(),
               ],
             ),
           ),
@@ -292,6 +305,420 @@ class _DebugPanelState extends State<DebugPanel>
     );
   }
 
+  Widget _buildToolsTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Application State Tools',
+            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: Colors.grey[400],
+                  fontWeight: FontWeight.bold,
+                ),
+          ),
+          const SizedBox(height: 12),
+          _buildToolTile(
+            icon: Icons.wifi_off,
+            title: 'Force WebSocket Disconnect',
+            subtitle: 'Simulates a network drop to test reconnection logic',
+            onTap: () {
+              try {
+                context.read<MultiplayerService>().debugForceDisconnect();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('WebSocket manually disconnected')),
+                );
+              } catch (e) {
+                AppLogger.error('Failed to disconnect WS', exception: e);
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildToolTile(
+            icon: Icons.grid_on,
+            title: 'Toggle UI Layout Bounds',
+            subtitle: 'Shows wireframes to help debug overflow constraints',
+            onTap: () {
+              setState(() {
+                debugPaintSizeEnabled = !debugPaintSizeEnabled;
+              });
+            },
+          ),
+          const SizedBox(height: 8),
+          _buildToolTile(
+            icon: Icons.delete_forever,
+            title: 'Nuke Local State',
+            subtitle: 'Logs out and clears local cache (simulates fresh install)',
+            onTap: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Nuke Local State?'),
+                  content: const Text('This will log you out and clear local session data. The app will return to the login screen.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      style: TextButton.styleFrom(foregroundColor: Colors.red),
+                      child: const Text('Nuke'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm == true && context.mounted) {
+                try {
+                  AppLogger.warning('🧪 DEBUG: Nuking local state...', source: 'TOOLS');
+                  
+                  await context.read<AuthService>().logout();
+                  // If your OfflineService has a clear/reset method, call it here:
+                  // await context.read<OfflineService>().clearDatabase();
+                  
+                  if (context.mounted) {
+                    Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+                  }
+                } catch (e) {
+                  AppLogger.error('Failed to nuke state', exception: e);
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildToolTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      tileColor: Colors.grey[850],
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      leading: Icon(icon, color: Colors.blue[300]),
+      title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+      subtitle: Text(subtitle, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      onTap: onTap,
+    );
+  }
+
+  Future<void> _confirmAndDeleteItem(
+    String title,
+    String content,
+    Future<void> Function() onConfirm,
+  ) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(content),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await onConfirm();
+      } catch (e) {
+        AppLogger.error('Failed to delete item', exception: e);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to delete: $e'), backgroundColor: Colors.red),
+          );
+        }
+      }
+    }
+  }
+
+  Widget _buildSyncTab() {
+    final offlineService = context.read<OfflineService>();
+    
+    return FutureBuilder(
+      future: Future.wait([
+        offlineService.getUnsyncedGames(),
+        offlineService.getAllUnsyncedTurns(),
+        offlineService.getSyncQueueSize(),
+      ]),
+      builder: (context, AsyncSnapshot<List<dynamic>> snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: BrandAnimations.loadingSpinner(size: 40),
+          );
+        }
+        if (snapshot.hasError) {
+          return _buildErrorState(snapshot.error.toString());
+        }
+
+        final unsyncedGames = snapshot.data![0] as List<OfflineGameData>;
+        final unsyncedTurns = snapshot.data![1] as List<QueuedTurn>;
+        final genericQueueSize = snapshot.data![2] as int;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Pending Offline Payloads',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Colors.blue[300],
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    tooltip: 'Refresh Queue',
+                    onPressed: () => setState(() {}),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Summary Stats
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildSyncStat('Games', unsyncedGames.length.toString()),
+                  _buildSyncStat('Turns', unsyncedTurns.length.toString()),
+                  _buildSyncStat('API Req', genericQueueSize.toString()),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // Force Sync Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    try {
+                      final auth = context.read<AuthService>();
+                      final userId = auth.currentUser?.id ?? 'unknown';
+                      final apiEndpoint = '${BuildConfig.apiBaseUrl}/api';
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Starting manual sync...')),
+                      );
+                      
+                      await offlineService.syncWithServer(apiEndpoint, userId);
+                      await offlineService.syncQueuedTurns(apiEndpoint);
+                      
+                      if (context.mounted) {
+                        setState(() {}); // Refresh view
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Sync completed!')),
+                        );
+                      }
+                    } catch (e) {
+                      AppLogger.error('Manual sync failed', exception: e);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Sync failed: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.cloud_upload),
+                  label: const Text('Force Sync Now'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blue[700],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              if (unsyncedGames.isNotEmpty) ...[
+                Text('Unsynced Games', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...unsyncedGames.map((g) => _buildPayloadTile(
+                  icon: Icons.games,
+                  title: '${g.gameType} (${g.score} pts)',
+                  subtitle: 'ID: ${g.id}',
+                  timestamp: g.timestamp,
+                  onDelete: () => _confirmAndDeleteItem(
+                    'Delete Unsynced Game?',
+                    'Are you sure you want to discard this game payload? This cannot be undone.',
+                    () async {
+                      await offlineService.deleteOfflineGame(g.id);
+                      setState(() {}); // Refresh the tab
+                    },
+                  ),
+                )),
+                const SizedBox(height: 16),
+              ],
+
+              if (unsyncedTurns.isNotEmpty) ...[
+                Text('Unsynced Turns', style: TextStyle(color: Colors.grey[400], fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                ...unsyncedTurns.map((t) => _buildPayloadTile(
+                  icon: Icons.low_priority,
+                  title: 'Turn (Game: ${t.gameId})',
+                  subtitle: 'Lobby: ${t.lobbyId} | Retries: ${t.retryCount}',
+                  timestamp: t.createdAt,
+                  onDelete: () => _confirmAndDeleteItem(
+                    'Delete Queued Turn?',
+                    'Are you sure you want to discard this turn payload? This cannot be undone.',
+                    () async {
+                      await offlineService.deleteQueuedTurn(t.id);
+                      setState(() {}); // Refresh the tab
+                    },
+                  ),
+                )),
+              ],
+              
+              if (unsyncedGames.isEmpty && unsyncedTurns.isEmpty && genericQueueSize == 0)
+                Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(32.0),
+                    child: Column(
+                      children: [
+                        Icon(Icons.check_circle_outline, size: 48, color: Colors.green[400]),
+                        const SizedBox(height: 16),
+                        Text(
+                          'All caught up!\nNo pending offline payloads.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSyncStat(String label, String count) {
+    return Column(
+      children: [
+        Text(count, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
+      ],
+    );
+  }
+
+  Widget _buildPayloadTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required DateTime timestamp,
+    VoidCallback? onDelete,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey[850],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey[700]!),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.blue[300], size: 24),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 2),
+                Text(subtitle, style: TextStyle(color: Colors.grey[400], fontSize: 12)),
+              ],
+            ),
+          ),
+          Text(
+            '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}',
+            style: TextStyle(color: Colors.grey[500], fontSize: 12),
+          ),
+          if (onDelete != null)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: Colors.red[300],
+              padding: const EdgeInsets.only(left: 12),
+              constraints: const BoxConstraints(),
+              onPressed: onDelete,
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _exportDebugData() async {
+    try {
+      final buffer = StringBuffer();
+      buffer.writeln('=== Mind Wars Debug Export ===');
+      buffer.writeln('Date: ${DateTime.now().toIso8601String()}');
+      
+      final currentRoute = ScreenVersionRegistry().currentRoute.value;
+      final screenVersion = ScreenVersionRegistry().getVersion(currentRoute);
+      
+      buffer.writeln('\n--- Active Screen State ---');
+      buffer.writeln('Route: ${currentRoute ?? "Unknown (or modal)"}');
+      if (screenVersion != null) {
+        buffer.writeln('Name: ${screenVersion.name}');
+        buffer.writeln('Version: ${screenVersion.version}');
+        buffer.writeln('Updated: ${screenVersion.lastUpdated}');
+      } else {
+        buffer.writeln('Status: Unregistered Screen');
+      }
+
+      buffer.writeln('\n--- Build Info ---');
+      buffer.write(BuildConfig.buildInfo);
+      
+      buffer.writeln('\n--- Network Metrics ---');
+      buffer.write(NetworkMetrics().getExportData());
+
+      buffer.writeln('\n--- Logs ---');
+      buffer.write(AppLogger.exportLogs());
+
+      final directory = Directory.systemTemp;
+      final fileName = 'mind_wars_debug_${DateTime.now().millisecondsSinceEpoch}.txt';
+      final file = File('${directory.path}/$fileName');
+      
+      await file.writeAsString(buffer.toString());
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Exported to: ${file.path}'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(label: 'OK', onPressed: () {}),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Export failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   Widget _buildHeader() {
     return Row(
       children: [
@@ -320,6 +747,12 @@ class _DebugPanelState extends State<DebugPanel>
               ),
             ],
           ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.file_download),
+          color: Colors.blue[300],
+          tooltip: 'Export Debug Data',
+          onPressed: _exportDebugData,
         ),
       ],
     );
@@ -454,6 +887,42 @@ class _DebugPanelState extends State<DebugPanel>
         ),
         const SizedBox(height: 16),
 
+        // Current Screen Info
+        ValueListenableBuilder<String?>(
+          valueListenable: ScreenVersionRegistry().currentRoute,
+          builder: (context, currentRoute, _) {
+            final screenVersion = ScreenVersionRegistry().getVersion(currentRoute);
+            return Container(
+              padding: const EdgeInsets.all(8),
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.grey[850],
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Active Screen State',
+                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: Colors.grey[400],
+                          fontWeight: FontWeight.bold,
+                        ),
+                  ),
+                  const SizedBox(height: 6),
+                  _buildBuildInfoLine('Route', currentRoute ?? 'Unknown (or modal)'),
+                  if (screenVersion != null) ...[
+                    _buildBuildInfoLine('Name', screenVersion.name),
+                    _buildBuildInfoLine('Version', screenVersion.version),
+                    _buildBuildInfoLine('Updated', screenVersion.lastUpdated),
+                  ] else
+                    _buildBuildInfoLine('Status', 'Unregistered Screen'),
+                ],
+              ),
+            );
+          },
+        ),
+
         // Build info
         Container(
           padding: const EdgeInsets.all(8),
@@ -472,6 +941,8 @@ class _DebugPanelState extends State<DebugPanel>
                     ),
               ),
               const SizedBox(height: 6),
+              _buildBuildInfoLine('Version', BuildConfig.appVersion),
+              _buildBuildInfoLine('Build #', BuildConfig.buildNumber.toString()),
               _buildBuildInfoLine('Flavor', BuildConfig.flavor),
               _buildBuildInfoLine('Type', BuildConfig.buildType),
               _buildBuildInfoLine('API URL', BuildConfig.apiBaseUrl),

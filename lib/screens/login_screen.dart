@@ -17,6 +17,7 @@ import '../main.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
 import '../widgets/debug_panel.dart';
+import '../widgets/build_version_badge.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -220,10 +221,12 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -497,8 +500,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ],
             ),
+            ),
           ),
-        ),
+          ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }

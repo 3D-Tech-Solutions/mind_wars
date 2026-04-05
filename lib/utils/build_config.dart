@@ -107,6 +107,8 @@ class BuildConfig {
   // Display build information
   static String get buildInfo {
     final buffer = StringBuffer();
+    buffer.writeln('Version: $appVersion');
+    buffer.writeln('Build: $buildNumber');
     buffer.writeln('Build Type: $buildType');
     buffer.writeln('App Name: $appName');
     buffer.writeln('Package: $packageName');

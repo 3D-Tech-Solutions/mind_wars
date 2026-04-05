@@ -10,6 +10,7 @@ import '../services/auth_service.dart';
 import '../services/multiplayer_service.dart';
 import '../utils/brand_animations.dart';
 import '../utils/build_config.dart';
+import '../widgets/build_version_badge.dart';
 
 class MultiplayerHubScreen extends StatefulWidget {
   const MultiplayerHubScreen({Key? key}) : super(key: key);
@@ -243,10 +244,12 @@ class _MultiplayerHubScreenState extends State<MultiplayerHubScreen> {
           ),
         ],
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Always show status card
@@ -816,6 +819,11 @@ class _MultiplayerHubScreenState extends State<MultiplayerHubScreen> {
             ),
           ],
         ),
+            ),
+            ),
+          ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }

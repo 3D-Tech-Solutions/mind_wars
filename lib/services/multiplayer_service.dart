@@ -1,23 +1,69 @@
 /**
  * Multiplayer Service - Handles async multiplayer functionality
  * Supports async Mind Wars with a minimum of 2 players and an optional open-ended player cap
+ * Supports 2-10 players per lobby with turn-based gameplay
  */
 
 import 'dart:async';
+import 'dart:convert';
 import 'package:socket_io_client/socket_io_client.dart' as IO;
 import '../models/models.dart';
 import '../utils/build_config.dart';
+import 'app_logger.dart';
 
 class MultiplayerService {
   IO.Socket? _socket;
   GameLobby? _currentLobby;
   final Map<String, List<Function>> _listeners = {};
+  String? _serverUrl;
+
+  static const List<String> _sensitiveKeys = [
+    'password',
+    'token',
+    'accesstoken',
+    'refreshtoken',
+  ];
+
+  dynamic _sanitizeNode(dynamic node) {
+    if (node is Map) {
+      final redactedMap = <String, dynamic>{};
+      node.forEach((key, value) {
+        if (_sensitiveKeys.contains(key.toString().toLowerCase())) {
+          redactedMap[key] = '[REDACTED]';
+        } else {
+          redactedMap[key] = _sanitizeNode(value);
+        }
+      });
+      return redactedMap;
+    } else if (node is List) {
+      return node.map((item) => _sanitizeNode(item)).toList();
+    }
+    return node;
+  }
+
+  String _sanitizeData(dynamic data) {
+    try {
+      if (data == null) return 'null';
+      if (data is String) {
+        try {
+          final decoded = jsonDecode(data);
+          return jsonEncode(_sanitizeNode(decoded));
+        } catch (_) {
+          return data;
+        }
+      }
+      return jsonEncode(_sanitizeNode(data));
+    } catch (e) {
+      return data.toString();
+    }
+  }
 
   /// [2025-11-16 Integration] Initialize multiplayer service with gateway URL
   /// Uses BuildConfig to get the correct server URL based on build flavor
   MultiplayerService({String? serverUrl}) {
     final resolvedUrl = serverUrl ?? BuildConfig.wsBaseUrl;
     print('[MultiplayerService] Configured default server URL: $resolvedUrl');
+    _serverUrl = serverUrl ?? BuildConfig.wsBaseUrl;
   }
 
   /// Check if socket is connected
@@ -37,6 +83,8 @@ class MultiplayerService {
     print('[MultiplayerService] Token provided: ${token != null}');
 
     final completer = Completer<void>();
+    var connected = false;
+
     print('[MultiplayerService] Creating socket.io client...');
     print('[MultiplayerService] URL: $serverUrl');
     print('[MultiplayerService] Player ID: $playerId');
@@ -60,10 +108,17 @@ class MultiplayerService {
       print('[MultiplayerService] ✓✓✓ Connected to multiplayer server');
       print('[MultiplayerService] Socket ID: ${_socket!.id}');
       print('[MultiplayerService] Socket connected: ${_socket!.connected}');
+      connected = true;
       _setupEventListeners();
       if (!completer.isCompleted) {
         completer.complete();
       }
+    });
+
+    // Log incoming events securely
+    _socket!.onAny((event, data) {
+      if (event == 'connect' || event == 'disconnect') return;
+      AppLogger.debug('↓ [$event]\nPayload: ${_sanitizeData(data)}', source: 'WS_IN');
     });
 
     _socket!.onConnectError((data) {
@@ -107,10 +162,33 @@ class MultiplayerService {
     _currentLobby = null;
   }
 
+  /// [Alpha Debug] Force a socket disconnect to test reconnection logic.
+  /// Does not nullify the socket so auto-reconnect can attempt recovery.
+  void debugForceDisconnect() {
+    AppLogger.warning('🧪 DEBUG: Forcing socket disconnect...', source: 'WS_DEBUG');
+    _socket?.disconnect();
+  }
+
+  void _safeEmitWithAck(String event, dynamic data, {required Function ack}) {
+    if (_socket == null) return;
+    AppLogger.debug('↑ [$event]\nPayload: ${_sanitizeData(data)}', source: 'WS_OUT');
+    _socket!.emitWithAck(event, data, ack: (responseData) {
+      AppLogger.debug('↓ ACK [$event]\nPayload: ${_sanitizeData(responseData)}', source: 'WS_IN');
+      ack(responseData);
+    });
+  }
+
+  void _safeEmit(String event, dynamic data) {
+    if (_socket == null) return;
+    AppLogger.debug('↑ [$event]\nPayload: ${_sanitizeData(data)}', source: 'WS_OUT');
+    _socket!.emit(event, data);
+  }
+
   /// Create a new game lobby with enhanced options
   Future<GameLobby> createLobby({
     required String name,
     int? maxPlayers,
+    int maxPlayers = 10,
     bool isPrivate = true,
     int numberOfRounds = 3,
     int votingPointsPerPlayer = 10,
@@ -131,6 +209,8 @@ class MultiplayerService {
 
     if (maxPlayers != null && maxPlayers < 2) {
       throw Exception('Max players must be at least 2 when a cap is set');
+    if (maxPlayers < 2 || maxPlayers > 10) {
+      throw Exception('Max players must be between 2 and 10');
     }
 
     if (numberOfRounds < 1 || numberOfRounds > 10) {
@@ -143,6 +223,7 @@ class MultiplayerService {
 
     final completer = Completer<GameLobby>();
     Future.delayed(Duration(seconds: 10), () {
+    final timeout = Future.delayed(Duration(seconds: 10), () {
       if (!completer.isCompleted) {
         print('[createLobby] ✗ Timeout waiting for server response');
         completer.completeError(Exception('Request timeout - server did not respond'));
@@ -150,8 +231,10 @@ class MultiplayerService {
     });
 
     print('[createLobby] Emitting create-lobby with: name=$name, maxPlayers=${maxPlayers ?? 'open'}, totalRounds=$numberOfRounds');
+    print('[createLobby] Emitting create-lobby with: name=$name, maxPlayers=$maxPlayers, totalRounds=$numberOfRounds');
 
     _socket!.emitWithAck('create-lobby', {
+    _safeEmitWithAck('create-lobby', {
       'name': name,
       'maxPlayers': maxPlayers,
       'isPrivate': isPrivate,
@@ -191,6 +274,7 @@ class MultiplayerService {
     final completer = Completer<GameLobby>();
 
     _socket!.emitWithAck('join-lobby', {
+    _safeEmitWithAck('join-lobby', {
       'lobbyId': lobbyId,
     }, ack: (data) {
       if (data['success']) {
@@ -214,6 +298,7 @@ class MultiplayerService {
     final completer = Completer<GameLobby>();
 
     _socket!.emitWithAck('join-lobby-by-code', {
+    _safeEmitWithAck('join-lobby-by-code', {
       'code': lobbyCode.toUpperCase(),
     }, ack: (data) {
       if (data['success']) {
@@ -239,6 +324,7 @@ class MultiplayerService {
 
     _socket!.emitWithAck('leave-lobby', {
       'lobbyId': leftLobbyId,
+      'lobbyId': _currentLobby!.id,
     }, ack: (data) {
       if (data['success']) {
         _currentLobby = null;
@@ -258,15 +344,22 @@ class MultiplayerService {
   Future<void> startGame(String lobbyId) async {
     if (_socket == null) {
       throw Exception('Not connected to server');
+  Future<Game> startGame(String gameId) async {
+    if (_socket == null || _currentLobby == null) {
+      throw Exception('Not in a lobby');
     }
 
     final completer = Completer<void>();
+    final completer = Completer<Game>();
 
     _socket!.emitWithAck('start-game', {
       'lobbyId': lobbyId,
+      'lobbyId': _currentLobby!.id,
+      'gameId': gameId,
     }, ack: (data) {
       if (data['success']) {
         completer.complete();
+        completer.complete(Game.fromJson(data['game']));
       } else {
         completer.completeError(Exception(data['error']));
       }
@@ -336,6 +429,7 @@ class MultiplayerService {
 
   /// Send a chat message
   Future<void> sendMessage(String message) async {
+  void sendMessage(String message) {
     if (_socket == null || _currentLobby == null) {
       throw Exception('Not in a lobby');
     }
@@ -343,6 +437,7 @@ class MultiplayerService {
     final completer = Completer<void>();
 
     _socket!.emitWithAck('chat-message', {
+    _safeEmit('chat-message', {
       'lobbyId': _currentLobby!.id,
       'message': message,
     }, ack: (data) {
@@ -358,6 +453,7 @@ class MultiplayerService {
 
   /// Send an emoji reaction
   Future<void> sendReaction(String messageId, String emoji) async {
+  void sendReaction(String messageId, String emoji) {
     if (_socket == null || _currentLobby == null) {
       throw Exception('Not in a lobby');
     }
@@ -365,6 +461,7 @@ class MultiplayerService {
     final completer = Completer<void>();
 
     _socket!.emitWithAck('emoji-reaction', {
+    _socket!.emit('emoji-reaction', {
       'lobbyId': _currentLobby!.id,
       'messageId': messageId,
       'emoji': emoji,
@@ -636,6 +733,7 @@ class MultiplayerService {
 
     _socket!.emitWithAck('close-lobby', {
       'lobbyId': closedLobbyId,
+      'lobbyId': _currentLobby!.id,
     }, ack: (data) {
       if (data['success']) {
         _currentLobby = null;
@@ -673,8 +771,10 @@ class MultiplayerService {
 
     if (name != null) settings['name'] = name;
     if (updateMaxPlayers) settings['maxPlayers'] = maxPlayers;
+    if (maxPlayers != null) settings['maxPlayers'] = maxPlayers;
     if (isPrivate != null) settings['isPrivate'] = isPrivate;
     if (numberOfRounds != null) settings['totalRounds'] = numberOfRounds;
+    if (numberOfRounds != null) settings['numberOfRounds'] = numberOfRounds;
     if (votingPointsPerPlayer != null) settings['votingPointsPerPlayer'] = votingPointsPerPlayer;
     if (skipRule != null) settings['skipRule'] = skipRule.value;
     if (skipTimeLimitHours != null) settings['skipTimeLimitHours'] = skipTimeLimitHours;

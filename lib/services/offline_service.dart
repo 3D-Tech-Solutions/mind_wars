@@ -207,6 +207,16 @@ class OfflineService {
     );
   }
 
+  /// Delete an offline game (used for debugging/clearing stuck items)
+  Future<void> deleteOfflineGame(String gameId) async {
+    final db = await database;
+    await db.delete(
+      'offline_games',
+      where: 'id = ?',
+      whereArgs: [gameId],
+    );
+  }
+
   /// Save user progress offline
   Future<void> saveUserProgress(UserProgress progress) async {
     final db = await database;
@@ -613,6 +623,16 @@ class OfflineService {
     await db.update(
       'turn_queue',
       {'synced': 1},
+      where: 'id = ?',
+      whereArgs: [turnId],
+    );
+  }
+
+  /// Delete a queued turn (used for debugging/clearing stuck items)
+  Future<void> deleteQueuedTurn(int turnId) async {
+    final db = await database;
+    await db.delete(
+      'turn_queue',
       where: 'id = ?',
       whereArgs: [turnId],
     );

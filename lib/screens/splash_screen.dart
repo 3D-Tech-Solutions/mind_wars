@@ -15,6 +15,7 @@ import 'onboarding_screen.dart';
 import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
 import '../widgets/debug_panel.dart';
+import '../widgets/build_version_badge.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -168,6 +169,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ],
             ),
           ),
+          const BuildVersionBadge(),
         ],
       ),
     );

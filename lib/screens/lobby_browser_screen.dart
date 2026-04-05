@@ -3,7 +3,9 @@
  * Allows users to join lobbies via code or browse public lobbies
  */
 
+import 'dart:async';
 import 'package:flutter/material.dart';
+import '../main.dart';
 import '../models/models.dart';
 import '../services/multiplayer_service.dart';
 import '../utils/brand_animations.dart';
@@ -26,24 +28,38 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
   bool _isLoading = false;
   bool _isJoining = false;
   String? _errorMessage;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _loadPublicLobbies();
+    
+    if (kAlphaMode) {
+      // Auto-refresh the lobby list every 10 seconds during Alpha testing
+      _refreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+        if (!_isJoining && mounted) {
+          _loadPublicLobbies(isAutoRefresh: true);
+        }
+      });
+    }
   }
 
   @override
   void dispose() {
+    _refreshTimer?.cancel();
     _codeController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadPublicLobbies() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+  Future<void> _loadPublicLobbies({bool isAutoRefresh = false}) async {
+    // Only show the loading spinner if this is a manual refresh
+    if (!isAutoRefresh) {
+      setState(() {
+        _isLoading = true;
+        _errorMessage = null;
+      });
+    }
 
     try {
       final lobbies = await widget.multiplayerService.getAvailableLobbies(
@@ -59,7 +75,9 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _errorMessage = e.toString().replaceAll('Exception: ', '');
+        if (!isAutoRefresh || _publicLobbies.isEmpty) {
+          _errorMessage = e.toString().replaceAll('Exception: ', '');
+        }
         _isLoading = false;
       });
     }
@@ -248,6 +266,11 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
                   ),
                 ),
                 const Spacer(),
+                if (kAlphaMode)
+                  const Text(
+                    'Auto-refreshing...',
+                    style: TextStyle(fontSize: 10, color: Colors.orange, fontStyle: FontStyle.italic),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.refresh),
                   onPressed: _isLoading ? null : _loadPublicLobbies,
@@ -302,9 +325,7 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
                       leading: CircleAvatar(
                         backgroundColor: Colors.blue,
                         child: Text(
-                          lobby.maxPlayers == null
-                              ? '${lobby.players.length}/Open'
-                              : '${lobby.players.length}/${lobby.maxPlayers}',
+                          '${lobby.players.length}/${lobby.maxPlayers}',
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -317,9 +338,7 @@ class _LobbyBrowserScreenState extends State<LobbyBrowserScreen> {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle: Text(
-                        lobby.maxPlayers == null
-                            ? '${lobby.players.length} players • ${lobby.numberOfRounds} rounds • Open lobby'
-                            : '${lobby.players.length} of ${lobby.maxPlayers} players • ${lobby.numberOfRounds} rounds',
+                        '${lobby.players.length} of ${lobby.maxPlayers} players • ${lobby.numberOfRounds} rounds',
                       ),
                       trailing: ElevatedButton(
                         onPressed: lobby.canJoin && !_isJoining

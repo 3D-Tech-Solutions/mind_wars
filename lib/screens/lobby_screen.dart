@@ -14,6 +14,7 @@ import 'game_voting_screen.dart';
 import 'lobby_settings_screen.dart';
 import 'war_config_screen.dart';
 import '../utils/brand_animations.dart';
+import '../widgets/build_version_badge.dart';
 
 class LobbyScreen extends StatefulWidget {
   final MultiplayerService multiplayerService;
@@ -549,9 +550,11 @@ class _LobbyScreenState extends State<LobbyScreen> {
             ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
             // Lobby Info Card
             Card(
               margin: const EdgeInsets.all(16),
@@ -803,7 +806,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
               ),
             ),
           ],
-        ),
+            ),
+          ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }

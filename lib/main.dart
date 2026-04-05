@@ -23,17 +23,14 @@ import 'screens/edit_profile_screen.dart';
 import 'screens/profile_info_screen.dart';
 import 'screens/offline_game_play_screen.dart';
 import 'screens/lobby_browser_screen.dart';
-import 'screens/multiplayer_hub_screen.dart';
 import 'screens/lobby_creation_screen.dart';
-import 'screens/join_mind_war_screen.dart';
 import 'screens/lobby_screen.dart';
-import 'screens/multiplayer_game_screen.dart';
-import 'screens/game_results_screen.dart';
 import 'games/game_catalog.dart';
 import 'models/models.dart';
 import 'widgets/branded_avatar.dart';
 import 'widgets/debug_panel.dart';
 import 'utils/build_config.dart';
+import 'utils/screen_version_registry.dart';
 import 'utils/theme/brand_theme.dart';
 
 /// [2025-11-16 Feature] Alpha mode flag for authentication method
@@ -63,7 +60,140 @@ void main() async {
     AppLogger.info('WS URL: ${BuildConfig.wsBaseUrl}', source: 'main');
   }
 
+  // Register all screen versions in the registry
+  _registerScreenVersions();
+
   runApp(const MindWarsApp());
+}
+
+void _registerScreenVersions() {
+  final registry = ScreenVersionRegistry();
+
+  registry.register('/', const ScreenVersion(
+    name: 'Splash Screen',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'App initialization and splash display',
+  ));
+
+  registry.register('/login', const ScreenVersion(
+    name: 'Login Screen',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'User authentication login',
+  ));
+
+  registry.register('/register', const ScreenVersion(
+    name: 'Registration Screen',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'New user registration',
+  ));
+
+  registry.register('/onboarding', const ScreenVersion(
+    name: 'Onboarding Screen',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'User onboarding tutorial',
+  ));
+
+  registry.register('/profile-setup', const ScreenVersion(
+    name: 'Profile Setup',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Initial profile configuration',
+  ));
+
+  registry.register('/edit-profile', const ScreenVersion(
+    name: 'Edit Profile',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'User profile editing',
+  ));
+
+  registry.register('/profile-info', const ScreenVersion(
+    name: 'Profile Info',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'User profile information display',
+  ));
+
+  registry.register('/home', const ScreenVersion(
+    name: 'Home Screen',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Main application home screen',
+  ));
+
+  registry.register('/lobby-list', const ScreenVersion(
+    name: 'Multiplayer Hub',
+    version: '1.1.0',
+    lastUpdated: '2026-04-05',
+    description: 'Multi-War hub with real-time cards and live updates',
+  ));
+
+  registry.register('/create-lobby', const ScreenVersion(
+    name: 'Lobby Creation',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Create a new mind war lobby',
+  ));
+
+  registry.register('/join-mind-war', const ScreenVersion(
+    name: 'Join Mind War',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Join existing mind war by code',
+  ));
+
+  registry.register('/browse-lobbies', const ScreenVersion(
+    name: 'Lobby Browser',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Browse available lobbies',
+  ));
+
+  registry.register('/lobby', const ScreenVersion(
+    name: 'Lobby Screen',
+    version: '1.2.0',
+    lastUpdated: '2026-04-05',
+    description: 'Active lobby view with admin chat UI for hosts',
+  ));
+
+  registry.register('/game', const ScreenVersion(
+    name: 'Multiplayer Game',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Active multiplayer game session',
+  ));
+
+  registry.register('/game-results', const ScreenVersion(
+    name: 'Game Results',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Game results and scoring',
+  ));
+
+  registry.register('/leaderboard', const ScreenVersion(
+    name: 'Leaderboard',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Player leaderboard and rankings',
+  ));
+
+  registry.register('/profile', const ScreenVersion(
+    name: 'Profile',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'User profile view',
+  ));
+
+  registry.register('/offline', const ScreenVersion(
+    name: 'Offline Game',
+    version: '1.0.0',
+    lastUpdated: '2026-04-05',
+    description: 'Offline game play',
+  ));
 }
 
 class MindWarsApp extends StatefulWidget {
@@ -167,11 +297,8 @@ class _MindWarsAppState extends State<MindWarsApp> {
               '/edit-profile': (context) => const EditProfileScreen(),
               '/profile-info': (context) => const ProfileInfoScreen(),
               '/home': (context) => const HomeScreen(),
-              '/lobby-list': (context) => const MultiplayerHubScreen(),
+              '/lobby-list': (context) => const LobbyListScreen(),
               '/create-lobby': (context) => LobbyCreationScreen(
-                    multiplayerService: context.read<MultiplayerService>(),
-                  ),
-              '/join-mind-war': (context) => JoinMindWarScreen(
                     multiplayerService: context.read<MultiplayerService>(),
                   ),
               '/browse-lobbies': (context) => LobbyBrowserScreen(
@@ -181,23 +308,6 @@ class _MindWarsAppState extends State<MindWarsApp> {
                     multiplayerService: context.read<MultiplayerService>(),
                     currentUserId: context.read<AuthService>().currentUser?.id ?? '',
                   ),
-              '/game': (context) {
-                final game = ModalRoute.of(context)?.settings.arguments as Game?;
-                if (game == null) {
-                  return const Scaffold(
-                    body: Center(child: Text('No game data')),
-                  );
-                }
-                return MultiplayerGameScreen(
-                  multiplayerService: context.read<MultiplayerService>(),
-                  currentUserId: context.read<AuthService>().currentUser?.id ?? '',
-                  game: game,
-                );
-              },
-              '/game-results': (context) {
-                final results = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-                return GameResultsScreen(results: results);
-              },
               '/leaderboard': (context) => const LeaderboardScreen(),
               '/profile': (context) => const ProfileScreen(),
               '/offline': (context) => const OfflineScreen(),
@@ -414,6 +524,30 @@ class _LobbyListScreenState extends State<LobbyListScreen> {
     Navigator.pushNamed(context, '/browse-lobbies');
   }
 
+  Future<void> _quickCreateTestLobby() async {
+    setState(() => _isConnecting = true);
+    try {
+      await _multiplayerService.createLobby(
+        name: 'Alpha Test ${DateTime.now().minute}${DateTime.now().second}',
+        maxPlayers: 4,
+        isPrivate: false, // Made public so it appears in the browser list for quick testing
+        numberOfRounds: 3,
+        votingPointsPerPlayer: 10,
+      );
+      if (!mounted) return;
+      
+      // LobbyScreen reads directly from multiplayerService.currentLobby
+      Navigator.pushNamed(context, '/lobby');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Test lobby creation failed: $e'), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => _isConnecting = false);
+    }
+  }
+
   Widget _buildStatusCard() {
     return Card(
       color: _hasConnectionError ? Colors.red.shade50 : Colors.green.shade50,
@@ -536,9 +670,34 @@ class _LobbyListScreenState extends State<LobbyListScreen> {
             ),
             const SizedBox(height: 24),
             if (kAlphaMode)
-              const Text(
-                'Tip: Use the debug panel to verify multiplayer server status while testing locally.',
-                style: TextStyle(fontSize: 12, color: Colors.orange),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    '🧪 Alpha Testing Tools',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.orange,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.tonalIcon(
+                    onPressed: _isConnecting ? null : _quickCreateTestLobby,
+                    icon: const Icon(Icons.flash_on),
+                    label: const Text('Quick-Create Public Test Lobby'),
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      backgroundColor: Colors.orange.shade50,
+                      foregroundColor: Colors.orange.shade900,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Tip: Use the debug panel (top right bug icon) to view active payloads and force WS disconnects.',
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                  ),
+                ],
               ),
           ],
         ),

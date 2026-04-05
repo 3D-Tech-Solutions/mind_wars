@@ -10,6 +10,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../widgets/build_version_badge.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -95,9 +96,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
-        child: Column(
-          children: [
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
             // Skip button
             Padding(
               padding: const EdgeInsets.all(16.0),
@@ -161,11 +164,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
           ],
-        ),
+            ),
+          ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }
-  
+
   Widget _buildPage(OnboardingPage page) {
     return Padding(
       padding: const EdgeInsets.all(40.0),
