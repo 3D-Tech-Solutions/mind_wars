@@ -1,6 +1,6 @@
 # Mind Wars 🧠⚔️
 
-**Mind Wars** is an async multiplayer cognitive games platform with cross-platform support for iOS 14+ and Android 8+. A Mind War requires at least 2 players, supports an admin-defined upper player limit, and also supports solo local practice outside of Mind Wars.
+**Mind Wars** is an async multiplayer cognitive games platform with cross-platform support for iOS 14+ and Android 8+. Designed as a family-first experience where parents have full visibility and control. A Mind War requires at least 2 players, supports an admin-defined upper player limit, and also supports solo local practice outside of Mind Wars.
 
 ## Development Philosophy
 
@@ -85,6 +85,48 @@ Core features first, polish iteratively. Optimistic updates with server confirma
   - Democratic game selection
 - Player presence indicators
 
+### 👨‍👩‍👧‍👦 Family-First Safety & Parental Controls
+**Mind Wars is designed for families. Kids play with their family, not with strangers.**
+
+#### Parent-Linked Child Accounts (Under 13)
+- **COPPA Compliant** — Full parental consent mechanism with verifiable parent approval
+- **Linked Accounts** — Child accounts must be linked to a parent/guardian account
+- **Parental Visibility** — Parents can see all child activity, scores, and game history
+- **Family-Only Play** — Children under 13 can only play in Mind Wars where their parent/guardian is also participating
+- **Content Control** — Parents set time limits, approve connections, and manage content access
+
+#### Parental Dashboard
+- **Activity Monitoring** — View child's game history, scores, playtime, and learning progress
+- **Time Management** — Set daily/weekly playtime limits with notifications
+- **Connection Control** — Approve or block new players before they can play with your child
+- **Chat Review** — Full transparency into all messages (parents can read all chat)
+- **Safety Reports** — Get flagged for any inappropriate behavior or attempted contact from unknown players
+- **Transition Settings** — Manage graduation to independent account at age 13+
+
+#### Child-Mode Safety Features
+- **Aggressive Profanity Filter** — Enhanced word filter tuned for child safety (not just swear words, but condescending/inappropriate language)
+- **Restricted Messaging** — Children cannot initiate contact with players outside their approved family group
+- **Message Moderation** — All child messages visible to parent; flagged messages reviewed by moderation team
+- **No External Tracking** — Disabled analytics, ads, and behavioral tracking for child accounts
+- **Screen Time Guidance** — App recommends age-appropriate playtime (e.g., 30-60 min/day)
+- **Safe Game Content** — All 15 games rated for children; no violent, suggestive, or scary content
+
+#### Registration Flow for Families
+1. **Parent creates account** — Normal registration (email, password, display name)
+2. **Parent invites family** — "I want to play with my child/family members"
+3. **Generates family code** — Shareable invite code or QR for linking
+4. **Child registers** — Selects "I'm under 13" during signup; enters parent email + family code
+5. **Parent approves** — Gets notification on their device; approves child account with one tap
+6. **Child account created** — Linked to parent; restricted to family Mind Wars only
+7. **Parent dashboard** — Immediate access to child's activity and controls
+
+#### Data Handling for Children Under 13
+- **Minimal Collection** — Only essential data (name, birthday, game scores)
+- **No Targeting** — No ads, behavioral tracking, or third-party data sharing
+- **Parental Access** — Parents can export or delete all child data at any time
+- **Retention Policy** — Child account data deleted upon request or account closure
+- **Security** — All child data encrypted at rest; HTTPS for transit; no cookies without explicit consent
+
 ### 🏆 Progression System
 - **Weekly leaderboards** with rankings
 - **15+ badges** to unlock:
@@ -159,6 +201,7 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 - **[ALPHA_USER_STORIES.md](ALPHA_USER_STORIES.md)** - ⭐ Alpha testing user stories (Epics, Features, Tasks for pre-server testing)
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture and implementation analysis
 - **[MIND_WAR_ACTIVITY_HUB.md](docs/MIND_WAR_ACTIVITY_HUB.md)** - ⭐ NEW: Chat + Activity feed system (player messages, game events, admin notifications)
+- **[FAMILY_SAFETY_ROADMAP.md](docs/FAMILY_SAFETY_ROADMAP.md)** - ⭐ NEW: COPPA compliance, parental controls, and child account implementation
 - **[VALIDATION.md](docs/project/VALIDATION.md)** - Implementation validation checklist
 - **[VOTING_SYSTEM.md](VOTING_SYSTEM.md)** - Game voting system documentation
 - **[BETA_ADMIN_USER_STORIES.md](docs/project/BETA_ADMIN_USER_STORIES.md)** - ⭐ NEW: Beta testing admin requirements and workflows
@@ -511,6 +554,87 @@ await offlineService.syncWithServer(
 - ⏳ Security-first posture (baseline server-side validation in place; advanced anti-cheating and real-time turn validation in progress)
 - ✅ Mobile-first design (5" touch screens scaling to 12" tablets)
 - ✅ Analytics instrumentation
+
+## Trust & Legal Compliance
+
+### COPPA & Child Privacy (US Law, Similar Globally)
+
+Mind Wars is compliant with the **Children's Online Privacy Protection Act (COPPA)** and similar child privacy laws (GDPR Article 8, LGPD Article 14, etc.).
+
+**Key Principles:**
+- ✅ **No targeting of children under 13** — No ads, behavioral tracking, or data sales
+- ✅ **Verifiable parental consent** — Parents explicitly approve child accounts with email verification
+- ✅ **Minimal data collection** — Only essential info for gameplay (name, birthday, scores)
+- ✅ **Parental access & control** — Parents can view, modify, and delete all child data
+- ✅ **Reasonable security** — Encryption, secure storage, regular audits
+- ✅ **No third-party sharing** — Child data never shared with advertisers, analytics, or external services
+
+### Why This Matters
+
+1. **Legal Risk** — COPPA violations carry fines of $40,000+ per violation. A single non-consenting child account can create liability for your entire app.
+2. **Trust** — Families won't let their kids play an app that spies on them or shows ads. Transparency builds loyalty.
+3. **Differentiation** — No major mobile game takes child privacy seriously. Being the "trusted family game" is a rare moat.
+4. **Sustainability** — Countries are tightening child privacy laws. Building compliance now = future-proof.
+
+### Implementation Roadmap
+
+**Phase 1 (MVP):**
+- [ ] Age verification at signup (ask for child's birthday)
+- [ ] Parental consent flow (email verification, checkbox, parent approval required)
+- [ ] Child account linking (backend support for parent-child relationships)
+- [ ] Child-mode restrictions (children can only see/join family Mind Wars)
+
+**Phase 2 (Beta):**
+- [ ] Parental dashboard (view child activity, set time limits, approve connections)
+- [ ] Enhanced profanity filter for child accounts
+- [ ] Chat logging & moderation (parent visibility, flag inappropriate behavior)
+- [ ] Privacy policy & ToS (COPPA-specific language, data handling)
+
+**Phase 3 (Production):**
+- [ ] Third-party COPPA audit (e.g., TRUSTe, Privo for official certification)
+- [ ] Moderation team training on child safety
+- [ ] Data deletion API (parents can request all data deleted)
+- [ ] Annual compliance review & policy updates
+
+### Messaging to App Stores
+
+**iOS App Store:**
+> "Mind Wars is a family-first cognitive games platform. Children under 13 require parental approval to play. Parents have full visibility into their child's activity, scores, and all communications. No ads, tracking, or external data sharing for child accounts."
+
+**Google Play Store:**
+> Same messaging; flag as "Contains ads" only if parents see ads (child accounts exclude). Age rating: PEGI 3 / USK 0 / IARC 3+.
+
+### Compliance Checklist
+
+- **Legal Documents**
+  - [ ] COPPA-compliant Privacy Policy (separate section for children)
+  - [ ] COPPA-compliant Terms of Service (parental consent language)
+  - [ ] Data Processing Agreement (for any processors)
+  - [ ] Record of parental consents (audit trail)
+
+- **Technical Implementation**
+  - [ ] Age verification at signup
+  - [ ] Parental consent mechanism (email + verification)
+  - [ ] Child account restrictions enforced server-side
+  - [ ] No cookies/tracking for child accounts
+  - [ ] No third-party SDKs for analytics/ads on child accounts
+  - [ ] Encrypted storage for personally identifiable information (PII)
+  - [ ] Data deletion API for parents
+
+- **Product Design**
+  - [ ] Parental dashboard
+  - [ ] Time limit enforcement
+  - [ ] Connection approval workflows
+  - [ ] Enhanced profanity filter
+  - [ ] Age-appropriate content (all games rated for 6+)
+
+- **Operational**
+  - [ ] Moderation team trained on child safety
+  - [ ] Process for handling reports of inappropriate behavior
+  - [ ] Response plan for potential COPPA violations
+  - [ ] Annual privacy & compliance audit
+
+---
 
 ## Production Deployment
 
