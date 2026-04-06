@@ -42,32 +42,119 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 - **Flutter** architecture for native performance
 
 ### 🎯 Game Variety
-**15 games across 5 cognitive categories:**
+**15 games across 5 cognitive categories, designed for competitive async play with family.**
+
+All games use **sealed payloads** — every player in a Mind War gets the exact same challenge, validated server-side to prevent cheating. Games score based on accuracy and speed.
+
+---
 
 #### 🧠 Memory Games
-- Memory Match - Match pairs of cards
-- Sequence Recall - Remember and reproduce sequences
-- Pattern Memory - Recreate visual patterns
+
+**Memory Match**
+- **How it works:** Classic flip-card memory game. Cards are face-down; flip pairs and memorize their positions. Match all pairs before time runs out.
+- **Cognitive benefits:** Short-term memory, visual recall, attention to detail
+- **Competitive aspect:** Score = pairs matched + time bonus. Faster completion = higher score. 90 second time limit per game.
+- **Difficulty:** 3 levels (12, 20, 30 cards) with adjustable speed
+
+**Sequence Recall**
+- **How it works:** Watch a sequence of colors/sounds play. Sequence gets longer each round. Reproduce the sequence by tapping buttons in correct order.
+- **Cognitive benefits:** Working memory, pattern recognition, auditory processing, concentration under pressure
+- **Competitive aspect:** Score = length of sequence recalled × difficulty multiplier. Both players get the same sequence; whoever recalls more steps wins.
+- **Difficulty:** 3 levels (starting at 4 steps, up to 12+)
+
+**Pattern Memory**
+- **How it works:** Grid of tiles displays a visual pattern briefly (2-3 sec), then tiles disappear. Recreate the pattern by tapping tiles in the correct positions.
+- **Cognitive benefits:** Spatial memory, pattern recognition, visual processing, mental imagery
+- **Competitive aspect:** Score = accuracy % × time bonus. Fewer mistakes = higher score. 45 second time limit per pattern.
+- **Difficulty:** 3 levels (4×4 to 6×6 grids, 3-12 tile patterns)
+
+---
 
 #### 🧩 Logic Games
-- Sudoku Duel - Competitive Sudoku solving
-- Logic Grid - Deductive reasoning puzzles
-- Code Breaker - Logical code-breaking challenges
+
+**Sudoku Duel**
+- **How it works:** Standard 9×9 Sudoku grid. Procedurally generated with seeded difficulty. Players solve competitively; score based on speed and accuracy.
+- **Cognitive benefits:** Logical reasoning, constraint satisfaction, planning, systematic problem-solving
+- **Competitive aspect:** Score = (cells filled correctly / total cells) × time bonus. Both players get identical puzzle; faster solve = higher score. 15-minute time limit.
+- **Difficulty:** 3 levels (easy 40 clues, medium 30 clues, hard 20 clues)
+
+**Logic Grid**
+- **How it works:** Deductive reasoning puzzle. Given clues, determine which attributes belong to which entities (e.g., "Alice is not wearing red; Bob is older than Charlie"). Fill in the grid correctly.
+- **Cognitive benefits:** Deductive reasoning, logical elimination, constraint reasoning, systematic thinking
+- **Competitive aspect:** Score = (correct cells / total cells) × time bonus. Both players solve identical puzzle; accuracy + speed determines winner. 10-minute time limit.
+- **Difficulty:** 3 levels (3×3 with 6 clues, 4×4 with 12 clues, 5×5 with 20 clues)
+
+**Code Breaker**
+- **How it works:** Guess a hidden code (sequence of colored pegs). Each guess gives feedback: black peg = correct color in correct position, white peg = correct color in wrong position. Minimize guesses to break the code.
+- **Cognitive benefits:** Hypothesis testing, logical deduction, pattern matching, strategic thinking
+- **Competitive aspect:** Score = 1000 - (guesses used × 100). Fewer guesses = higher score. Both players crack identical codes. Typical: 4 pegs, 6 colors, 4-8 guesses needed.
+- **Difficulty:** 3 levels (3 pegs, 4 pegs, 5 pegs)
+
+---
 
 #### 👁️ Attention Games
-- Spot the Difference - Find differences quickly
-- Color Rush - Match colors under pressure
-- Focus Finder - Locate items in cluttered scenes (Like where's waldo on your mobile device)
+
+**Spot the Difference**
+- **How it works:** Two nearly identical images displayed side-by-side. Find all differences (typically 5-8 per image pair). Tap differences to mark them; 60-second time limit.
+- **Cognitive benefits:** Visual attention, detail orientation, rapid scanning, visual comparison
+- **Competitive aspect:** Score = differences found × time bonus. Both players see identical image pairs; fastest to find all = winner. Accuracy penalty: marking wrong spot loses 50 points.
+- **Difficulty:** 3 levels (5 diffs in simple scenes, 7 diffs in complex scenes, 10 diffs in detailed photos)
+
+**Color Rush**
+- **How it works:** Screen displays colored words in mismatched colors (e.g., the word "RED" printed in blue ink). Tap the word that matches the color name. Speed increases each round.
+- **Cognitive benefits:** Selective attention, cognitive inhibition (Stroop effect), color recognition, reaction time
+- **Competitive aspect:** Score = correct answers × speed multiplier. Mistakes reset multiplier. Both players get identical sequences; whoever maintains streak longer = higher score. 60-second time limit.
+- **Difficulty:** 3 levels (slow 1 sec/item, moderate 0.7 sec/item, fast 0.4 sec/item)
+
+**Focus Finder**
+- **How it works:** Cluttered scene with hidden target object (like "Where's Waldo"). Tap on the target to find it. Time limit; multiple targets per round.
+- **Cognitive benefits:** Visual search, sustained attention, detail recognition, spatial awareness
+- **Competitive aspect:** Score = targets found × time bonus. Both players search identical scenes; faster find = higher score. Typical: 3-5 targets per scene, 90-second time limit.
+- **Difficulty:** 3 levels (obvious objects in busy scenes, subtle objects, 20+ distractors)
+
+---
 
 #### 🗺️ Spatial Games
-- Puzzle Race - Complete jigsaw puzzles
-- Rotation Master - Mentally rotate procedurally generated 2D/3D/4D wireframes to match the target pose under seeded, multiplayer-validated conditions
-- Path Finder - Navigate mazes efficiently
+
+**Puzzle Race**
+- **How it works:** Jigsaw puzzle with procedurally generated pieces. Drag pieces to correct positions. Snap-to-grid aids placement. Beat the clock.
+- **Cognitive benefits:** Spatial reasoning, visual-spatial problem-solving, pattern matching, fine motor coordination
+- **Competitive aspect:** Score = (pieces placed correctly / total pieces) × time bonus. Both players solve identical puzzle; accuracy + speed = winner. 5-minute time limit.
+- **Difficulty:** 3 levels (20 pieces, 35 pieces, 50 pieces)
+
+**Rotation Master**
+- **How it works:** 3D wireframe object displayed in a target orientation. Player must mentally rotate a given object to match the target. Player rotates on-screen 3D model via touch; tap "Done" when matched. Server validates rotation against tolerance (±5°).
+- **Cognitive benefits:** Spatial visualization, mental rotation, 3D reasoning, spatial orientation, fine motor control
+- **Competitive aspect:** Score = accuracy % × speed bonus. Both players get identical rotation challenges (seeded); fewer errors + faster solve = higher score. 5 items per game, 90-second time limit per item.
+- **Difficulty:** 3 levels (2D shapes, simple 3D objects, complex 4D projections)
+
+**Path Finder**
+- **How it works:** Maze from start to exit. Player traces path by tapping/swiping. Shortest, fastest path wins. Multiple obstacles: moving walls, narrow passages, dead ends.
+- **Cognitive benefits:** Spatial planning, pathfinding, visual-spatial reasoning, goal-directed navigation
+- **Competitive aspect:** Score = path efficiency % × time bonus. Both players get identical mazes (seeded); fastest with minimal wrong turns = winner. Typical: 3-5 minute time limit.
+- **Difficulty:** 3 levels (simple 10×10 maze, complex 20×20 maze, advanced with moving obstacles)
+
+---
 
 #### 📚 Language Games
-- Word Builder - Create words from letters
-- Anagram Attack - Solve anagrams quickly
-- Vocabulary Showdown - Test vocabulary knowledge
+
+**Word Builder**
+- **How it works:** Given a set of 7-10 letters, form as many valid English words as possible within 3-minute time limit. Longer words = more points. Minimum word length: 3 letters.
+- **Cognitive benefits:** Vocabulary, linguistic flexibility, pattern recognition, spelling, word recall
+- **Competitive aspect:** Score = (sum of word lengths) × unique words found. Both players get identical letter sets (seeded); whoever finds more/longer words = higher score.
+- **Difficulty:** 3 levels (common letters like AEIORTNS, mixed letter frequency, advanced with Q, X, Z)
+
+**Anagram Attack**
+- **How it works:** Given a scrambled word, unscramble it. Hints available but cost points. Each correct answer in 60 seconds. 10 anagrams per game.
+- **Cognitive benefits:** Spelling, word recognition, pattern analysis, vocabulary
+- **Competitive aspect:** Score = (10 - anagrams_skipped) × avg_time_per_solve. Both players get identical anagrams (seeded); fewest wrong + fastest solve = winner.
+- **Difficulty:** 3 levels (4-letter words, 7-letter words, 10+ letter words and proper nouns)
+
+**Vocabulary Showdown**
+- **How it works:** Multiple-choice vocabulary quiz. 10 questions with 4 options each. Timed per question (20 seconds). Score based on accuracy and speed.
+- **Cognitive benefits:** Vocabulary breadth, reading comprehension, knowledge recall, cognitive speed
+- **Competitive aspect:** Score = correct answers × time multiplier. Both players get identical questions (seeded from question bank); accuracy + speed = winner. Penalty: wrong answer costs 50 points.
+- **Difficulty:** 3 levels (elementary 5,000-word range, intermediate 10,000-word range, advanced 15,000-word range with archaic/technical terms)
 
 ### 💬 Social Features
 - **Mind War Activity Hub** — Unified feed combining player chat, game events, and admin notifications
