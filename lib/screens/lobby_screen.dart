@@ -664,7 +664,13 @@ class _LobbyScreenState extends State<LobbyScreen> {
               border: Border.all(color: borderColor, width: 2),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: BrandedAvatar(user: player, size: 60),
+            child: BrandedAvatar(
+              avatar: player.avatar ?? '👤',
+              avatarUrl: player.avatarUrl,
+              userId: player.id,
+              fallbackLabel: player.username.substring(0, 1).toUpperCase(),
+              radius: 30,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
