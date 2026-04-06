@@ -2,8 +2,7 @@
 
 # Mind Wars Deployment Helper Script
 # Usage: ./scripts/deploy.sh [COMMAND] [OPTIONS]
-
-set -e
+# Supports: build, install, quick-install, start-emulator, deploy, verify, list-devices
 
 # Colors for output
 RED='\033[0;31m'
@@ -15,6 +14,13 @@ NC='\033[0m' # No Color
 # Setup Android SDK environment
 export ANDROID_SDK_ROOT=~/Android/Sdk
 export PATH=$ANDROID_SDK_ROOT/emulator:$ANDROID_SDK_ROOT/platform-tools:$PATH
+
+# Configuration
+FLAVOR="local"
+BUILD_TYPE="debug"
+API_HOST="172.16.0.4"
+PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+DEPLOY_DIR="$PROJECT_ROOT/.deploy"
 
 # Helper functions
 print_header() {
@@ -112,7 +118,124 @@ start_emulator() {
     return 1
 }
 
-# Deploy to device
+# Build APK (no device needed)
+build_apk() {
+    local build_type=${1:-$BUILD_TYPE}
+
+    if [ "$build_type" != "debug" ] && [ "$build_type" != "release" ]; then
+        print_error "Invalid build type: $build_type (must be 'debug' or 'release')"
+        return 1
+    fi
+
+    print_header "Building $FLAVOR APK ($build_type)"
+    print_info "Using API host: $API_HOST"
+
+    cd "$PROJECT_ROOT"
+
+    flutter build apk \
+        --flavor=$FLAVOR \
+        --dart-define=FLAVOR=$FLAVOR \
+        --dart-define=LOCAL_HOST=$API_HOST \
+        $([ "$build_type" = "debug" ] && echo "--debug" || echo "--release")
+
+    # Find and verify built APK
+    local apk_path="$PROJECT_ROOT/build/app/outputs/flutter-apk/app-$FLAVOR-$build_type.apk"
+
+    if [ ! -f "$apk_path" ]; then
+        print_error "APK build failed"
+        return 1
+    fi
+
+    # Save build info
+    local size=$(du -h "$apk_path" | cut -f1)
+    local version=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/version: //' | cut -d'+' -f1)
+    local build_number=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/.*+//')
+
+    mkdir -p "$DEPLOY_DIR"
+    cat > "$DEPLOY_DIR/last_build.env" << EOF
+FLAVOR=$FLAVOR
+LOCAL_HOST=$API_HOST
+BUILD_TYPE=$build_type
+APK_PATH=$apk_path
+APK_SIZE=$size
+VERSION_NAME=$version
+BUILD_NUMBER=$build_number
+BUILT_AT=$(date -u +%Y-%m-%dT%H:%M:%S%z)
+EOF
+
+    echo "$apk_path" > "$DEPLOY_DIR/last_apk_path.txt"
+
+    print_success "APK built: $apk_path (${size})"
+    print_info "Run './scripts/deploy.sh install' to install to device"
+}
+
+# Install APK to connected device
+install_apk() {
+    local build_type=${1:-$BUILD_TYPE}
+
+    # Find the APK
+    local apk_path="$PROJECT_ROOT/build/app/outputs/flutter-apk/app-$FLAVOR-$build_type.apk"
+
+    if [ ! -f "$apk_path" ]; then
+        print_error "APK not found: $apk_path"
+        print_info "Run './scripts/deploy.sh build $build_type' first"
+        return 1
+    fi
+
+    # Check if device is connected
+    local devices
+    devices=$(adb devices | grep -v "List of devices" | grep -v "^$" | wc -l)
+
+    if [ "$devices" -eq 0 ]; then
+        print_error "No devices found. Connect a device via USB and enable USB debugging."
+        return 1
+    fi
+
+    print_header "Installing APK to device"
+    print_info "APK: $apk_path"
+
+    adb install -r "$apk_path"
+
+    print_success "APK installed successfully"
+    print_info "Run './scripts/deploy.sh launch' to launch the app"
+}
+
+# Build and install in one step
+quick_install() {
+    local build_type=${1:-$BUILD_TYPE}
+    print_info "Building and installing $build_type APK..."
+    build_apk "$build_type" && install_apk "$build_type"
+}
+
+# Launch app on connected device
+launch_app() {
+    # Check if device is connected
+    local devices
+    devices=$(adb devices | grep -v "List of devices" | grep -v "^$" | wc -l)
+
+    if [ "$devices" -eq 0 ]; then
+        print_error "No devices found. Connect a device via USB and enable USB debugging."
+        return 1
+    fi
+
+    print_header "Launching app on device"
+    local package_name="com.mindwars.app.$FLAVOR"
+
+    adb shell am start -n "$package_name/com.mindwars.app.MainActivity"
+    print_success "App launched"
+}
+
+# Show build info
+show_build_info() {
+    if [ -f "$DEPLOY_DIR/last_build.env" ]; then
+        print_header "Last Build Info"
+        cat "$DEPLOY_DIR/last_build.env" | sed 's/^/  /'
+    else
+        print_warning "No build info found. Run './scripts/deploy.sh build' first."
+    fi
+}
+
+# Deploy to device (legacy - uses flutter run)
 deploy() {
     local device_id=$1
     local local_host=${2:-"192.168.1.100"}
@@ -133,28 +256,80 @@ show_usage() {
     cat << EOF
 ${BLUE}Mind Wars Deployment Helper${NC}
 
-${YELLOW}Usage:${NC}
-  ./scripts/deploy.sh [COMMAND] [OPTIONS]
+${YELLOW}BUILD & INSTALL COMMANDS:${NC}
+  build [debug|release]      Build APK without device connected
+  install [debug|release]    Install last built APK to connected device
+  quick-install [type]       Build and install in one step
+  launch                     Launch the installed app on device
+  info                       Show last build information
 
-${YELLOW}Commands:${NC}
-  verify              Verify environment
-  list-devices        List connected devices
-  start-emulator      Start Android emulator
-  deploy <id>         Deploy to device
-  help                Show this help message
+${YELLOW}DEVICE MANAGEMENT:${NC}
+  verify                     Verify Flutter, ADB, Android SDK
+  list-devices              List connected devices
+  start-emulator [avd]      Start Android emulator (default: Pixel_5_API_33)
 
-${YELLOW}Examples:${NC}
-  ./scripts/deploy.sh verify
+${YELLOW}LEGACY:${NC}
+  deploy <id> [host]        Deploy using 'flutter run' (hot reload)
+
+${YELLOW}HELP:${NC}
+  help                       Show this help message
+
+${YELLOW}EXAMPLES:${NC}
+  # Build without device
+  ./scripts/deploy.sh build debug
+  ./scripts/deploy.sh build release
+
+  # Install to device
+  ./scripts/deploy.sh install debug
+  ./scripts/deploy.sh install release
+
+  # Build and install (one command)
+  ./scripts/deploy.sh quick-install debug
+  ./scripts/deploy.sh quick-install release
+
+  # Launch and manage devices
+  ./scripts/deploy.sh launch
   ./scripts/deploy.sh list-devices
   ./scripts/deploy.sh start-emulator
-  ./scripts/deploy.sh deploy emulator-5554
 
-See DEPLOYMENT_GUIDE.md for detailed instructions.
+  # Environment setup
+  ./scripts/deploy.sh verify
+
+${YELLOW}WORKFLOW:${NC}
+  # Development: Build once, install to multiple devices
+  ./scripts/deploy.sh build debug        # Build once
+  # ... connect first device ...
+  ./scripts/deploy.sh install debug      # Install to first device
+  # ... connect second device ...
+  ./scripts/deploy.sh install debug      # Install to second device (no rebuild)
+
+  # Quick test: One command build + install
+  ./scripts/deploy.sh quick-install debug
+
+  # Launch the app
+  ./scripts/deploy.sh launch
+
+See .deploy/DEPLOY_GUIDE.md for detailed instructions.
 EOF
 }
 
 # Main
 case "${1:-help}" in
+    build)
+        build_apk "$2"
+        ;;
+    install)
+        install_apk "$2"
+        ;;
+    quick-install)
+        quick_install "$2"
+        ;;
+    launch)
+        launch_app
+        ;;
+    info)
+        show_build_info
+        ;;
     verify)
         verify_environment
         ;;
