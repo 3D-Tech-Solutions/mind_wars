@@ -41,11 +41,10 @@ import 'utils/theme/brand_theme.dart';
 /// This ensures Android alpha builds use local authentication automatically,
 /// which keeps registration and login testable even when the hosted backend is
 /// unavailable. Production builds continue using backend authentication.
-const bool kAlphaMode = String.fromEnvironment(
-      'FLAVOR',
-      defaultValue: 'production',
-    ) ==
-    'alpha';
+/// [2026-04-06 Fix] Also enable alpha mode for 'local' flavor (local dev testing).
+const bool kAlphaMode =
+  String.fromEnvironment('FLAVOR', defaultValue: 'production') == 'alpha' ||
+  String.fromEnvironment('FLAVOR', defaultValue: 'production') == 'local';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
