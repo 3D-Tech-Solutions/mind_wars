@@ -250,106 +250,109 @@ class _MultiplayerHubScreenState extends State<MultiplayerHubScreen> {
             child: Padding(
               padding: const EdgeInsets.all(16.0),
               child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Always show status card
-              _buildStatusCard(),
-              const SizedBox(height: 16),
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Always show status card
+                  _buildStatusCard(),
+                  const SizedBox(height: 16),
 
-              // Main content area: wars list or empty state
-              Expanded(
-                child: _myLobbies.isNotEmpty
-                    ? _buildWarsListSection()
-                    : _buildEmptyState(),
-              ),
-
-              // War limit warning (if at 10 wars)
-              if (_isAtWarLimit)
-                Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade50,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.red.shade200),
+                  // Main content area: wars list or empty state
+                  Expanded(
+                    child: _myLobbies.isNotEmpty
+                        ? _buildWarsListSection()
+                        : _buildEmptyState(),
                   ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(Icons.warning, color: Colors.red.shade700, size: 18),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Leave or close at least 1 Mind War to create or join another.',
-                          style: TextStyle(fontSize: 12, color: Colors.red.shade700),
-                        ),
+
+                  // War limit warning (if at 10 wars)
+                  if (_isAtWarLimit)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
                       ),
-                    ],
-                  ),
-                ),
-
-              // Info banner
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.amber.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        _myLobbies.isNotEmpty
-                            ? 'You can be in up to 10 Mind Wars, but only one waiting planning lobby at a time.'
-                            : 'Invite family and friends by sharing the Mind War code.',
-                        style: TextStyle(fontSize: 12, color: Colors.amber.shade700),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.warning, color: Colors.red.shade700, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Leave or close at least 1 Mind War to create or join another.',
+                              style: TextStyle(fontSize: 12, color: Colors.red.shade700),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 12),
 
-              // Debug panel
-              if (_showDebugPanel) _buildDebugPanel(),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _showDebugPanel = !_showDebugPanel;
-                  });
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                  // Info banner
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.info_outline, color: Colors.amber.shade700, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _myLobbies.isNotEmpty
+                                ? 'You can be in up to 10 Mind Wars, but only one waiting planning lobby at a time.'
+                                : 'Invite family and friends by sharing the Mind War code.',
+                            style: TextStyle(fontSize: 12, color: Colors.amber.shade700),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Debug Info',
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                      ),
-                      Icon(
-                        _showDebugPanel ? Icons.expand_less : Icons.expand_more,
-                        size: 16,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-              // Bottom actions (always visible)
-              _buildBottomActions(),
-            ],
+                  // Debug panel
+                  if (_showDebugPanel) _buildDebugPanel(),
+                  GestureDetector(
+                    onTap: () {
+                      setState(() {
+                        _showDebugPanel = !_showDebugPanel;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Debug Info',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          ),
+                          Icon(
+                            _showDebugPanel ? Icons.expand_less : Icons.expand_more,
+                            size: 16,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Bottom actions (always visible)
+                  _buildBottomActions(),
+                ],
+              ),
+            ),
           ),
-        ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }
@@ -819,11 +822,6 @@ class _MultiplayerHubScreenState extends State<MultiplayerHubScreen> {
             ),
           ],
         ),
-            ),
-            ),
-          ),
-          const BuildVersionBadge(),
-        ],
       ),
     );
   }

@@ -15,6 +15,7 @@ import '../utils/brand_assets.dart';
 import '../utils/brand_animations.dart';
 import '../utils/validators.dart';
 import '../widgets/branded_avatar.dart';
+import '../widgets/build_version_badge.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -215,10 +216,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       appBar: AppBar(
         title: const Text('Set Up Your Profile'),
       ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24.0),
-          child: Form(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24.0),
+              child: Form(
             key: _formKey,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -434,7 +437,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
               ],
             ),
           ),
-        ),
+            ),
+          ),
+          const BuildVersionBadge(),
+        ],
       ),
     );
   }

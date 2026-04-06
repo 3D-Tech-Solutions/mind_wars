@@ -407,6 +407,7 @@ class AuthService {
       final finalAvatar = avatar ?? currentUser.avatar ?? '';
       final updatedUser = await localAuthService.updateProfile(
         userId: currentUser.id,
+        username: username,
         displayName: finalUsername,
         avatar: finalAvatar,
       );

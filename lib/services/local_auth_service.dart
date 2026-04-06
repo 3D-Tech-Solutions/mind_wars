@@ -171,16 +171,20 @@ class LocalAuthService {
     required String userId,
     required String displayName,
     required String avatar,
+    String? username,
   }) async {
     final trimmedDisplayName = displayName.trim();
+    final updateMap = <String, dynamic>{
+      'display_name': trimmedDisplayName,
+      'avatar': avatar,
+      'synced': 0,
+      if (username != null && username.trim().isNotEmpty)
+        'username': username.trim(),
+    };
 
     await database.update(
       'local_users',
-      {
-        'display_name': trimmedDisplayName,
-        'avatar': avatar,
-        'synced': 0,
-      },
+      updateMap,
       where: 'id = ?',
       whereArgs: [userId],
     );
