@@ -57,7 +57,7 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 #### 👁️ Attention Games
 - Spot the Difference - Find differences quickly
 - Color Rush - Match colors under pressure
-- Focus Finder - Locate items in cluttered scenes
+- Focus Finder - Locate items in cluttered scenes (Like where's waldo on your mobile device)
 
 #### 🗺️ Spatial Games
 - Puzzle Race - Complete jigsaw puzzles
@@ -70,6 +70,12 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 - Vocabulary Showdown - Test vocabulary knowledge
 
 ### 💬 Social Features
+- **Mind War Activity Hub** — Unified feed combining player chat, game events, and admin notifications
+  - Real-time player messages with family-friendly chat
+  - Game completion events with scores and rankings
+  - Admin setting changes visible to all players
+  - Accessible from any game screen via chat icon
+  - Configurable notifications (game completions, admin changes, chat messages, quiet hours)
 - **In-game chat** with real-time messaging
 - **Emoji reactions** (👍 ❤️ 😂 🎉 🔥 👏 😮 🤔)
 - **Vote-to-skip mechanics** for game progression
@@ -152,6 +158,7 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 - **[USER_STORIES.md](docs/business/USER_STORIES.md)** - Comprehensive user stories with acceptance criteria
 - **[ALPHA_USER_STORIES.md](ALPHA_USER_STORIES.md)** - ⭐ Alpha testing user stories (Epics, Features, Tasks for pre-server testing)
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture and implementation analysis
+- **[MIND_WAR_ACTIVITY_HUB.md](docs/MIND_WAR_ACTIVITY_HUB.md)** - ⭐ NEW: Chat + Activity feed system (player messages, game events, admin notifications)
 - **[VALIDATION.md](docs/project/VALIDATION.md)** - Implementation validation checklist
 - **[VOTING_SYSTEM.md](VOTING_SYSTEM.md)** - Game voting system documentation
 - **[BETA_ADMIN_USER_STORIES.md](docs/project/BETA_ADMIN_USER_STORIES.md)** - ⭐ NEW: Beta testing admin requirements and workflows
@@ -467,6 +474,7 @@ await offlineService.syncWithServer(
 - ✅ Player presence tracking
 - ✅ In-game chat with emoji reactions
 - ✅ Vote-to-skip mechanics
+- ⏳ **Mind War Activity Hub** (Phase 1: Core UI + state management, Phase 2: Full notification system)
 
 ### Epic 3: Core Gameplay Experience ✅
 - ✅ 15+ games across 5 cognitive categories
