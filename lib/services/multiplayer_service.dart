@@ -1177,4 +1177,155 @@ class MultiplayerService {
   void onGameEnded(Function(Map<String, dynamic>) callback) {
     on('game-ended', callback);
   }
+
+  // ============================================================================
+  // Stub methods for incomplete features (to be implemented)
+  // ============================================================================
+
+  /// Stub: Send chat message
+  Future<void> sendMessage(String message) async {
+    _safeEmit('chat-message', {'text': message});
+  }
+
+  /// Stub: Send typing indicator
+  void sendTypingIndicator(bool isTyping) {
+    _safeEmit('typing-indicator', {'isTyping': isTyping});
+  }
+
+  /// Stub: Send reaction
+  Future<void> sendReaction(String messageId, String emoji) async {
+    _safeEmit('emoji-reaction', {'messageId': messageId, 'emoji': emoji});
+  }
+
+  /// Stub: Fetch chat history
+  Future<List<ChatMessage>> fetchChatHistory({required String lobbyId, int limit = 50}) async {
+    return [];
+  }
+
+  /// Stub: Vote-to-Skip listener
+  void onVotingUpdate(Function(Map<String, dynamic>) callback) {
+    on('voting-update', callback);
+  }
+
+  /// Stub: Skip vote initiated listener
+  void onSkipVoteInitiated(Function(Map<String, dynamic>) callback) {
+    on('skip-vote-initiated', callback);
+  }
+
+  /// Stub: Skip vote updated listener
+  void onSkipVoteUpdated(Function(Map<String, dynamic>) callback) {
+    on('skip-vote-updated', callback);
+  }
+
+  /// Stub: Skip vote executed listener
+  void onSkipVoteExecuted(Function(Map<String, dynamic>) callback) {
+    on('skip-vote-executed', callback);
+  }
+
+  /// Stub: Time skip executed listener
+  void onTimeSkipExecuted(Function(Map<String, dynamic>) callback) {
+    on('time-skip-executed', callback);
+  }
+
+  /// Stub: Emit vote update
+  void emitVoteUpdate(String lobbyId, String playerId, Map<String, int> votes) {
+    _safeEmit('voting-update', {'lobbyId': lobbyId, 'playerId': playerId, 'votes': votes});
+  }
+
+  /// Stub: Initiate skip vote
+  Future<VoteToSkipSession> initiateSkipVote({required String lobbyId, required int battleNumber, required String playerIdToSkip}) async {
+    return VoteToSkipSession(
+      id: 'skip-vote-${DateTime.now().millisecondsSinceEpoch}',
+      lobbyId: lobbyId,
+      battleNumber: battleNumber,
+      playerIdToSkip: playerIdToSkip,
+      createdAt: DateTime.now(),
+      durationSeconds: 60,
+    );
+  }
+
+  /// Stub: Cast skip vote
+  Future<void> castSkipVote(String sessionId) async {
+    _safeEmit('skip-vote-cast', {'sessionId': sessionId});
+  }
+
+  /// Stub: Cancel skip vote
+  Future<void> cancelSkipVote(String sessionId) async {
+    _safeEmit('skip-vote-canceled', {'sessionId': sessionId});
+  }
+
+  /// Stub: Set player ready
+  Future<void> setPlayerReady(String lobbyId) async {
+    _safeEmit('player-ready', {'lobbyId': lobbyId});
+  }
+
+  /// Stub: Update war config
+  Future<void> updateWarConfig({required String lobbyId, required String difficulty, required String hintPolicy, required bool ranked, String? gamePack, List<String>? manualGameIds}) async {
+    _safeEmit('war-config-updated', {
+      'lobbyId': lobbyId,
+      'difficulty': difficulty,
+      'hintPolicy': hintPolicy,
+      'ranked': ranked,
+    });
+  }
+}
+
+/// Vote-to-Skip session model
+class VoteToSkipSession {
+  final String id;
+  final String lobbyId;
+  final int battleNumber;
+  final String playerIdToSkip;
+  final DateTime createdAt;
+  final int durationSeconds;
+
+  VoteToSkipSession({
+    required this.id,
+    required this.lobbyId,
+    required this.battleNumber,
+    required this.playerIdToSkip,
+    required this.createdAt,
+    required this.durationSeconds,
+  });
+
+  factory VoteToSkipSession.fromJson(Map<String, dynamic> json) {
+    return VoteToSkipSession(
+      id: json['id'] ?? '',
+      lobbyId: json['lobbyId'] ?? '',
+      battleNumber: json['battleNumber'] ?? 0,
+      playerIdToSkip: json['playerIdToSkip'] ?? '',
+      createdAt: DateTime.now(),
+      durationSeconds: json['durationSeconds'] ?? 60,
+    );
+  }
+}
+
+/// Chat message model
+class ChatMessage {
+  final String id;
+  final String senderId;
+  final String senderName;
+  final String text;
+  final DateTime timestamp;
+  final String type;
+
+  ChatMessage({
+    required this.id,
+    required this.senderId,
+    required this.senderName,
+    required this.text,
+    required this.timestamp,
+    this.type = 'player',
+  });
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) {
+    return ChatMessage(
+      id: json['id'] ?? '',
+      senderId: json['senderId'] ?? '',
+      senderName: json['senderName'] ?? 'Unknown',
+      text: json['text'] ?? '',
+      timestamp: DateTime.now(),
+      type: json['type'] ?? 'player',
+    );
+  }
 }
