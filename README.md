@@ -46,6 +46,8 @@ Core features first, polish iteratively. Optimistic updates with server confirma
 
 All games use **sealed payloads** — every player in a Mind War gets the exact same challenge, validated server-side to prevent cheating. Games score based on accuracy and speed.
 
+**See [GAMES_REFERENCE.md](docs/GAMES_REFERENCE.md) for complete specifications:** mechanics, scoring algorithms, difficulty progression, seeded challenge generation, and accessibility features for all 15 games.
+
 ---
 
 #### 🧠 Memory Games
@@ -283,15 +285,22 @@ All games use **sealed payloads** — every player in a Mind War gets the exact 
 - **[CLOUD_MIGRATION_PLAN.md](docs/project/CLOUD_MIGRATION_PLAN.md)** - ⭐ NEW: Production cloud migration strategy (Epic 13)
 
 ### 📚 Product Documentation
+
+**Games & Core Mechanics:**
+- **[GAMES_REFERENCE.md](docs/GAMES_REFERENCE.md)** - ⭐ Complete specifications for all 15 games: mechanics, scoring, difficulty progression, seeded challenge generation, accessibility features
+- **[VOTING_SYSTEM.md](VOTING_SYSTEM.md)** - Game voting system documentation
+
+**Product & Strategy:**
 - **[USER_PERSONAS.md](docs/business/USER_PERSONAS.md)** - 8 detailed user personas (Family, Friends, Office/Colleagues)
 - **[USER_STORIES.md](docs/business/USER_STORIES.md)** - Comprehensive user stories with acceptance criteria
 - **[ALPHA_USER_STORIES.md](ALPHA_USER_STORIES.md)** - ⭐ Alpha testing user stories (Epics, Features, Tasks for pre-server testing)
+
+**Technical & Architecture:**
 - **[ARCHITECTURE.md](ARCHITECTURE.md)** - Technical architecture and implementation analysis
-- **[MIND_WAR_ACTIVITY_HUB.md](docs/MIND_WAR_ACTIVITY_HUB.md)** - ⭐ NEW: Chat + Activity feed system (player messages, game events, admin notifications)
-- **[FAMILY_SAFETY_ROADMAP.md](docs/FAMILY_SAFETY_ROADMAP.md)** - ⭐ NEW: COPPA compliance, parental controls, and child account implementation
+- **[MIND_WAR_ACTIVITY_HUB.md](docs/MIND_WAR_ACTIVITY_HUB.md)** - ⭐ Chat + Activity feed system (player messages, game events, admin notifications)
+- **[FAMILY_SAFETY_ROADMAP.md](docs/FAMILY_SAFETY_ROADMAP.md)** - ⭐ COPPA compliance, parental controls, and child account implementation
 - **[VALIDATION.md](docs/project/VALIDATION.md)** - Implementation validation checklist
-- **[VOTING_SYSTEM.md](VOTING_SYSTEM.md)** - Game voting system documentation
-- **[BETA_ADMIN_USER_STORIES.md](docs/project/BETA_ADMIN_USER_STORIES.md)** - ⭐ NEW: Beta testing admin requirements and workflows
+- **[BETA_ADMIN_USER_STORIES.md](docs/project/BETA_ADMIN_USER_STORIES.md)** - ⭐ Beta testing admin requirements and workflows
 
 ### 🧪 Testing & Quality Assurance
 - **[ALPHA_TESTING.md](ALPHA_TESTING.md)** - Alpha testing guide for local builds and early testing
