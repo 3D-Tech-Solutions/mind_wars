@@ -26,6 +26,7 @@ class ProfileSetupScreen extends StatefulWidget {
 class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _usernameController = TextEditingController();
+  final _displayNameController = TextEditingController();
 
   String? _selectedAvatar;
   bool _isLoading = false;
@@ -70,17 +71,27 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         _usernameController.text = emailPrefix;
       }
 
+      // Set display name from current user or default to username
+      _displayNameController.text = currentUser.displayName ??
+        (currentUser.email?.split('@')[0] ?? '');
+
       if (currentUser.avatar != null && currentUser.avatar!.isNotEmpty) {
         _selectedAvatar = currentUser.avatar;
       }
     }
 
     _didInitializeProfile = true;
+
+    // Check availability of the pre-filled username
+    if (_usernameController.text.isNotEmpty) {
+      _checkUsernameAvailability(_usernameController.text);
+    }
   }
   
   @override
   void dispose() {
     _usernameController.dispose();
+    _displayNameController.dispose();
     super.dispose();
   }
 
@@ -169,8 +180,11 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       ///
       /// Username is now collected during profile setup and stored with display name.
       /// This keeps alpha mode local-first while preserving the backend update path.
+      /// [2026-04-06 Feature] Added displayName field to allow users to show a
+      /// different name than their username if it's already taken.
       await authService.updateProfile(
         username: _usernameController.text.trim(),
+        displayName: _displayNameController.text.trim(),
         avatar: _selectedAvatar!,
       );
 
@@ -310,6 +324,29 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       ],
                     ),
                   ),
+
+                const SizedBox(height: 24),
+
+                // Display name field
+                /// [2026-04-06 Feature] Allow users to display a different name than
+                /// their unique username (for cases where preferred username is taken).
+                TextFormField(
+                  controller: _displayNameController,
+                  decoration: InputDecoration(
+                    labelText: 'Display Name (Optional)',
+                    hintText: 'What name to show other players',
+                    prefixIcon: const Icon(Icons.badge),
+                    border: const OutlineInputBorder(),
+                    helperText: 'This is what other players will see (can be different from username)',
+                  ),
+                  validator: (value) {
+                    if (value != null && value.length > 50) {
+                      return 'Display name must be 50 characters or less';
+                    }
+                    return null;
+                  },
+                  enabled: !_isLoading,
+                ),
 
                 const SizedBox(height: 32),
                 
