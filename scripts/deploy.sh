@@ -149,7 +149,13 @@ build_apk() {
     # Save build info
     local size=$(du -h "$apk_path" | cut -f1)
     local version=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/version: //' | cut -d'+' -f1)
-    local build_number=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/.*+//')
+    # Use build counter file if it exists, otherwise fall back to pubspec.yaml
+    local build_number
+    if [ -f "$DEPLOY_DIR/build_number_counter.txt" ]; then
+        build_number=$(cat "$DEPLOY_DIR/build_number_counter.txt" | head -1)
+    else
+        build_number=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/.*+//')
+    fi
 
     mkdir -p "$DEPLOY_DIR"
     cat > "$DEPLOY_DIR/last_build.env" << EOF
