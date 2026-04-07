@@ -49,17 +49,9 @@ log_error() {
 save_build_info() {
     local apk_path=$1
     local build_type=$2
+    local version=$3
+    local build_number=$4
     local size=$(du -h "$apk_path" | cut -f1)
-
-    # Extract version from pubspec.yaml
-    local version=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/version: //' | cut -d'+' -f1)
-    # Use build counter file if it exists, otherwise fall back to pubspec.yaml
-    local build_number
-    if [ -f "$DEPLOY_DIR/build_number_counter.txt" ]; then
-        build_number=$(cat "$DEPLOY_DIR/build_number_counter.txt" | head -1)
-    else
-        build_number=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/.*+//')
-    fi
 
     cat > "$DEPLOY_DIR/last_build.env" << EOF
 FLAVOR=$FLAVOR
@@ -106,11 +98,29 @@ cmd_build() {
 
     cd "$PROJECT_ROOT"
 
+    # Auto-increment build number
+    local counter_file="$DEPLOY_DIR/build_number_counter.txt"
+    if [ ! -f "$counter_file" ]; then echo "1" > "$counter_file"; fi
+    local build_number
+    build_number=$(cat "$counter_file" | tr -d '[:space:]')
+    build_number=$((build_number + 1))
+    echo "$build_number" > "$counter_file"
+
+    local app_version
+    app_version=$(grep "^version:" "$PROJECT_ROOT/pubspec.yaml" | sed 's/version: //' | cut -d'+' -f1)
+
+    # Keep pubspec in sync with counter
+    sed -i "s/^version: .*/version: ${app_version}+${build_number}/" "$PROJECT_ROOT/pubspec.yaml"
+
+    log_info "Build #${build_number} (v${app_version})"
+
     # Build the APK
     flutter build apk \
         --flavor=$FLAVOR \
         --dart-define=FLAVOR=$FLAVOR \
         --dart-define=LOCAL_HOST=$API_HOST \
+        --dart-define=APP_VERSION=$app_version \
+        --dart-define=BUILD_NUMBER=$build_number \
         --$build_mode
 
     # Find the built APK
@@ -118,7 +128,7 @@ cmd_build() {
     apk_path=$(find_apk "$build_type") || return 1
 
     # Save build info
-    save_build_info "$apk_path" "$build_type"
+    save_build_info "$apk_path" "$build_type" "$app_version" "$build_number"
 
     log_success "APK built: $apk_path"
     log_info "Run '$0 install' to install to connected device"

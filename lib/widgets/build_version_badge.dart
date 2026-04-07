@@ -11,7 +11,7 @@ class BuildVersionBadge extends StatelessWidget {
       right: 8,
       bottom: 8,
       child: Text(
-        'v${BuildConfig.appVersion} · #${BuildConfig.buildNumber}',
+        'v${BuildConfig.appVersion} · ${BuildConfig.buildStage} · #${BuildConfig.buildNumber}',
         style: const TextStyle(fontSize: 9, color: Colors.white38),
       ),
     );

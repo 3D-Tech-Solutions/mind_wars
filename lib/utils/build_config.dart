@@ -49,9 +49,29 @@ class BuildConfig {
     return '';
   }
 
-  // Version and build tracking
-  static const String appVersion = '1.0.2';  // Update in sync with pubspec.yaml
-  static const int buildNumber = 7;           // Update in sync with pubspec.yaml and .deploy/build_number_counter.txt
+  // Version and build tracking - dynamically injected via dart-define at build time
+  static const String appVersion = String.fromEnvironment(
+    'APP_VERSION',
+    defaultValue: '0.0.0',
+  );
+
+  static const int buildNumber = int.fromEnvironment(
+    'BUILD_NUMBER',
+    defaultValue: 0,
+  );
+
+  // Build stage can be explicitly set, otherwise determined by flavor
+  static const String _buildStageOverride = String.fromEnvironment(
+    'BUILD_STAGE',
+    defaultValue: '',
+  );
+
+  static String get buildStage {
+    if (_buildStageOverride.isNotEmpty) return _buildStageOverride;
+    if (isLocal) return 'pre-alpha';
+    if (isAlpha) return 'alpha';
+    return 'production';
+  }
 
   // Feature flags based on build type
   static bool get enableDebugLogging => isDebug || isAlpha || isLocal;
