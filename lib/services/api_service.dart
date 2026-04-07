@@ -346,6 +346,19 @@ class ApiService {
     return GameLobby.fromJson(data['lobby']);
   }
 
+  // ============== Mind Wars (Lifecycle) ==============
+
+  /// Advance to next round
+  /// Called by admin or when auto-advance rules are met
+  Future<Map<String, dynamic>> advanceRound(String mindWarId) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/mind-wars/$mindWarId/rounds/advance'),
+      headers: _headers,
+    );
+
+    return _handleResponse(response);
+  }
+
   // ============== Games ==============
 
   /// Get available games
@@ -378,6 +391,24 @@ class ApiService {
     return _handleResponse(response);
   }
 
+  /// Submit game metrics for a Mind War round (sealed payload system)
+  /// Server computes score server-side from metrics
+  /// Payload must include: seed, metrics (accuracy, timeMs, mistakes), eventsHash
+  Future<Map<String, dynamic>> submitMindWarGameResult(
+    String mindWarId,
+    String roundId,
+    String gameId,
+    Map<String, dynamic> metrics,
+  ) async {
+    final response = await _client.post(
+      Uri.parse('$baseUrl/mind-wars/$mindWarId/rounds/$roundId/games/$gameId/results'),
+      headers: _headers,
+      body: jsonEncode(metrics),
+    );
+
+    return _handleResponse(response);
+  }
+
   /// Validate game move (server-side validation)
   Future<Map<String, dynamic>> validateMove(
     String gameId,
@@ -388,6 +419,35 @@ class ApiService {
       Uri.parse('$baseUrl/games/$gameId/validate-move'),
       headers: _headers,
       body: jsonEncode(moveData),
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get sealed game payload for deterministic gameplay
+  /// Ensures all players get identical challenges for fair competition
+  Future<Map<String, dynamic>> getSealedGame(
+    String mindWarId,
+    String roundId,
+    String gameId,
+  ) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/mind-wars/$mindWarId/rounds/$roundId/games/$gameId/sealed'),
+      headers: _headers,
+    );
+
+    return _handleResponse(response);
+  }
+
+  /// Get per-game leaderboard for a specific game type
+  /// Used for targeted messaging like "Top 3 in Memory Matrix!"
+  Future<Map<String, dynamic>> getGameLeaderboard(
+    String mindWarId,
+    String gameId,
+  ) async {
+    final response = await _client.get(
+      Uri.parse('$baseUrl/mind-wars/$mindWarId/leaderboard?gameId=$gameId'),
+      headers: _headers,
     );
 
     return _handleResponse(response);
